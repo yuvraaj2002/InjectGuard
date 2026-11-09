@@ -131,3 +131,12 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Concepts worth remembering
 - For agent demos, the **trace is the product**: without tool I/O in the API response, a chat box cannot explain *why* an answer appeared (or an attack succeeded).
 - CORS + a thin `/tools` catalog lets a separate frontend inspect the same surface the model sees.
+
+---
+
+## 2026-11-09 — S1 decision: guard model over heuristics-first
+
+### Concepts worth remembering
+- **S1 primary path (locked in PRD):** a decision/guard model scores user + tool/doc text before it enters context (`score(text) -> Verdict`), then block/drop/redact.
+- Heuristics and spotlighting are useful extras; they are not the main 2026-quality detector.
+- Still pair with **action policy (S3)** — no classifier is perfect.

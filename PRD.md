@@ -141,27 +141,33 @@ flowchart LR
 
 ## 7. Defense solutions
 
-### Solution 1: Detection layer (input + untrusted-content guard, with spotlighting)
+### Solution 1: Detection layer (decision / guard model on untrusted text)
 
 **Problem:** malicious instructions in the user input (E1) and in untrusted content (E2–E4) reach the model unflagged, and the model can't tell data apart from instructions.
 
+**Decision (locked for implementation):** Solution 1’s **primary** defense is a **decision / guard model** (prompt-injection classifier or small LLM judge) — not regex heuristics and not spotlighting-first. Heuristics and spotlighting remain optional add-ons later; action allowlists stay in Solution 3.
+
 **Design**
-- **Guard classifier** runs on (a) user input and (b) every retrieved chunk and tool/MCP output *before* it enters the context.
-  - Option A: Llama Prompt Guard 2 (small, local, via HF transformers).
-  - Option B: a small LLM judge with a strict JSON verdict (`{injection: bool, confidence, reason}`).
-  - Plus cheap **heuristics**: regexes for "ignore previous", role-play markers, hidden Unicode/zero-width characters, base64 blobs, and markdown image URLs carrying query params.
-- **Action on detection:** user input → block with a safe message. Untrusted chunk → drop or redact the chunk and log it (configurable: `drop | redact | flag`).
-- **Spotlighting:** wrap untrusted text in random per-request delimiters, and optionally **datamark** it (interleave a marker token) or **encode** it (base64). The system prompt says that content inside these markers is data only.
+- A pluggable guard scores text *before* it enters OpsPilot context:
+  - (a) user input (E1)
+  - (b) every retrieved chunk and tool/MCP output (E2–E4) — **implement tool/doc outputs first** (where indirect injection already succeeded in the lab).
+- Interface: `score(text) -> Verdict` with at least `{injection: bool, confidence: float, reason: str}`.
+- Backend choices (pick one to start; keep the interface swappable):
+  - **Preferred for local lab:** a dedicated guard/classifier model (e.g. Llama Prompt Guard 2 or equivalent small decision model via HF / local runtime).
+  - **Fallback:** a small Ollama LLM judge with a strict JSON verdict schema.
+- **Action on detection:** user input → block with a safe message. Untrusted chunk → `drop | redact | flag` (configurable) and log the verdict + latency.
+- **Later / optional (not day-1):** cheap heuristics as a pre-filter; spotlighting (delimiters / datamark / encode) as defense-in-depth after the guard path works.
 
 **Implementation steps**
-1. `guards/heuristics.py` with unit tests for each pattern.
-2. `guards/classifier.py` with a pluggable interface `score(text) -> Verdict`; Prompt Guard 2 and LLM-judge backends.
-3. Chunking for long tool outputs (classifier context limits); aggregate with max score.
-4. `guards/spotlight.py`: delimiter, datamark and encode modes.
-5. Hook into the API (input) and the tool router (content). Emit metrics: verdicts, latency.
-6. Tune the threshold on a held-out benign + attack split. Report a precision/recall curve rather than a single number.
+1. `defenses/s1_detection/classifier.py` with `score(text) -> Verdict` and one working backend (guard model or LLM judge).
+2. Unit tests with planted strings from `email-003` / `ticket-003` / benign VPN docs (expect injection vs clean).
+3. Hook into the tool router: scan `search_docs` / `read_email` / `read_ticket` outputs before they are appended to messages; emit metrics (verdict, confidence, latency).
+4. Optional: scan user input on `/chat` with the same interface.
+5. Chunking for long tool outputs (classifier context limits); aggregate with max score.
+6. Tune the threshold on attack + benign examples; revisit ASR with the eval runner after the guard is on.
+7. (Later) heuristics pre-filter and/or spotlighting if needed.
 
-**Trade-offs:** cheap and easy to bolt on, but probabilistic. Thresholds trade ASR against false blocks. Adds latency on every chunk. Datamarking can hurt answer quality.
+**Trade-offs:** stronger than regex on paraphrases, but probabilistic. Thresholds trade ASR against false blocks (benign security wording). Adds latency/cost on every scanned chunk. Still bypassable — pair with Solution 3 action policy; should not be the only defense.
 
 **Known limitations / bypasses:** paraphrased, multilingual, obfuscated or split-across-chunks payloads; adaptive attackers who tune against the classifier; benign security docs that look like attacks (false positives). **Shouldn't be the only defense.**
 
