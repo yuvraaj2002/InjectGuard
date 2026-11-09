@@ -3,10 +3,18 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.agent.baseline import BaselineAgent, run_chat
-from app.config import OLLAMA_MODEL
+from app.config import (
+    DECISION_MODEL,
+    GUARD_INPUT,
+    GUARD_RETRIEVED_CONTEXT,
+    GUARD_TOOL_OUTPUT,
+    OLLAMA_MODEL,
+)
 from app.schemas import (
     ChatRequest,
     ChatResponse,
+    GuardEventTrace,
+    GuardLayerInfo,
     HealthResponse,
     ToolCallTrace,
     ToolInfo,
@@ -15,6 +23,29 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _guard_layers() -> list[GuardLayerInfo]:
+    return [
+        GuardLayerInfo(
+            id="user_input",
+            label="User input",
+            enabled=GUARD_INPUT,
+            description="Decision model scores the user message before the agent runs.",
+        ),
+        GuardLayerInfo(
+            id="retrieved_context",
+            label="Retrieved context",
+            enabled=GUARD_RETRIEVED_CONTEXT,
+            description="Scores search_docs / read_email / read_ticket text before it enters context.",
+        ),
+        GuardLayerInfo(
+            id="tool_output",
+            label="Tool output",
+            enabled=GUARD_TOOL_OUTPUT,
+            description="Scores other tool results (e.g. write-tool confirmations) before re-entry.",
+        ),
+    ]
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -28,7 +59,12 @@ def list_tools() -> ToolsResponse:
     agent = BaselineAgent()
     tools = [ToolInfo(**tool) for tool in agent.list_tools()]
     logger.info("Tools listed count=%s", len(tools))
-    return ToolsResponse(model=OLLAMA_MODEL, tools=tools)
+    return ToolsResponse(
+        model=OLLAMA_MODEL,
+        tools=tools,
+        decision_model=DECISION_MODEL,
+        guard_layers=_guard_layers(),
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -44,9 +80,11 @@ def chat(payload: ChatRequest) -> ChatResponse:
         ) from exc
 
     logger.info(
-        "Chat response ready (%s chars, %s tool calls)",
+        "Chat response ready (%s chars, %s tool calls, %s guard events, blocked=%s)",
         len(result.reply),
         len(result.tool_calls),
+        len(result.guard_events),
+        result.blocked,
     )
     return ChatResponse(
         message=payload.message,
@@ -62,4 +100,16 @@ def chat(payload: ChatRequest) -> ChatResponse:
             )
             for call in result.tool_calls
         ],
+        guard_events=[
+            GuardEventTrace(
+                layer=event.layer,
+                action=event.action,
+                injection=event.injection,
+                confidence=event.confidence,
+                reason=event.reason,
+                tool_name=event.tool_name,
+            )
+            for event in result.guard_events
+        ],
+        blocked=result.blocked,
     )

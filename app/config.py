@@ -16,5 +16,12 @@ DECISION_MODEL_TIMEOUT_S = 30.0
 # noul >= threshold ⇒ treat as prompt injection / jailbreak
 INJECTION_THRESHOLD = 0.45
 
+# S1 toggles — score before text enters the agent context
+GUARD_INPUT = True
+GUARD_RETRIEVED_CONTEXT = True  # search_docs / read_email / read_ticket outputs
+GUARD_TOOL_OUTPUT = True  # other tool outputs (e.g. send_email / create_ticket)
+# When retrieved/tool content is flagged: "drop" (replace) or "flag" (log only)
+GUARD_CONTENT_ACTION = "drop"
+
 SEARCH_TOP_K = 3
 MAX_TOOL_ROUNDS = 4

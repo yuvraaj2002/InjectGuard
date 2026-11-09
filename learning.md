@@ -152,3 +152,15 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - System One is a **decision API**, not chat: you pass `state` + typed `questions`; for yes/no use `type: noul` and read `answers.*.noul` ∈ [0, 1] = P(true).
 - Map to our Verdict: `confidence = noul`, `injection = noul >= threshold` (config `INJECTION_THRESHOLD`).
 - Same scorer can run on **user input**, **retrieved docs**, and **tool outputs** — only the `source` label and the action (block vs drop) change.
+
+---
+
+## 2026-11-09 — Three S1 choke points + visualizing them
+
+### What we built
+- `ContentGuard` wired in the agent: block on user input; drop/flag on retrieved context (`search_docs` / `read_email` / `read_ticket`) and other tool outputs.
+- API returns `guard_events` + `blocked`; UI shows a 3D interactive layer stack (React Three Fiber) that lights up per verdict.
+
+### Concepts worth remembering
+- **Same detector, different actions:** input → refuse the request; untrusted content → withhold from context (drop) so the planner never “sees” the poison.
+- Demo UX matters for security labs: showing *which layer fired* teaches the architecture better than a binary “blocked” toast.

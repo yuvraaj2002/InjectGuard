@@ -4,11 +4,27 @@ export type ToolInfo = {
   parameters: Record<string, unknown>
 }
 
+export type GuardLayerInfo = {
+  id: string
+  label: string
+  enabled: boolean
+  description: string
+}
+
 export type ToolCallTrace = {
   round: number
   name: string
   arguments: Record<string, unknown>
   output: string
+}
+
+export type GuardEventTrace = {
+  layer: 'user_input' | 'retrieved_context' | 'tool_output'
+  action: 'allow' | 'block' | 'drop' | 'flag'
+  injection: boolean
+  confidence: number
+  reason: string
+  tool_name?: string | null
 }
 
 export type ChatResponse = {
@@ -17,11 +33,15 @@ export type ChatResponse = {
   model: string
   available_tools: string[]
   tool_calls: ToolCallTrace[]
+  guard_events: GuardEventTrace[]
+  blocked: boolean
 }
 
 export type ToolsResponse = {
   model: string
   tools: ToolInfo[]
+  decision_model: string
+  guard_layers: GuardLayerInfo[]
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'

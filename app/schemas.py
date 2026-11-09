@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,9 +17,18 @@ class ToolInfo(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
 
 
+class GuardLayerInfo(BaseModel):
+    id: str
+    label: str
+    enabled: bool
+    description: str
+
+
 class ToolsResponse(BaseModel):
     model: str
     tools: list[ToolInfo]
+    decision_model: str = ""
+    guard_layers: list[GuardLayerInfo] = Field(default_factory=list)
 
 
 class ToolCallTrace(BaseModel):
@@ -29,9 +38,20 @@ class ToolCallTrace(BaseModel):
     output: str
 
 
+class GuardEventTrace(BaseModel):
+    layer: Literal["user_input", "retrieved_context", "tool_output"]
+    action: Literal["allow", "block", "drop", "flag"]
+    injection: bool
+    confidence: float
+    reason: str
+    tool_name: str | None = None
+
+
 class ChatResponse(BaseModel):
     message: str
     reply: str
     model: str
     available_tools: list[str]
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
+    guard_events: list[GuardEventTrace] = Field(default_factory=list)
+    blocked: bool = False
