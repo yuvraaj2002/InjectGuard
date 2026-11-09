@@ -26,3 +26,4 @@ htmlcov/
 
 # Lab runtime sinks
 data/synthetic/email_sink.jsonl
+data/synthetic/ticket_sink.jsonl

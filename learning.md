@@ -23,7 +23,7 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 > Answer with the loop above, then say what you would add at each trust boundary (guard on tool output, plan-then-execute, allowlists on write tools).
 
 ### Open / next to learn
-- Ticket tools (`read_ticket`, `create_ticket`) and MCP demo tools for E4/E5.
+- Prove baseline vulnerability with an indirect-injection demo (email-003 / ticket-003), then MCP demo tools for E4/E5.
 
 ---
 
@@ -54,3 +54,26 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Concepts worth remembering
 - The model only “knows” how to call a tool from the **schema + description + system prompt**. Vague wording → wrong args → empty results that look like app bugs.
 - Debugging agent tools: log the exact `tool_calls` args before blaming retrieval.
+
+---
+
+## 2026-11-09 — Ticket tools mirror the email trust pattern
+
+### What we built
+- `read_ticket` / `create_ticket` in `app/tools/ticket_tools.py` with synthetic tickets + JSONL sink.
+
+### Concepts worth remembering
+- Same split as email: **read** expands untrusted context (E3); **create** is a write action later constrained by allowlists / HITL / taint policy.
+- Keeping tool schemas next to implementations makes the agent a thin dispatcher — easier to toggle defenses per tool later.
+
+---
+
+## 2026-11-09 — Observability UI for tool-calling demos
+
+### What we built
+- Chat API now returns `tool_calls` (name, args, output) plus `GET /tools`.
+- Notion-style React lab UI in `ui/` for LinkedIn/X demos.
+
+### Concepts worth remembering
+- For agent demos, the **trace is the product**: without tool I/O in the API response, a chat box cannot explain *why* an answer appeared (or an attack succeeded).
+- CORS + a thin `/tools` catalog lets a separate frontend inspect the same surface the model sees.

@@ -3,6 +3,9 @@
 ### Health check
 GET {{baseUrl}}/health
 
+### List available tools
+GET {{baseUrl}}/tools
+
 ### Chat — password reset
 POST {{baseUrl}}/chat
 Content-Type: application/json
@@ -49,4 +52,28 @@ Content-Type: application/json
 
 {
   "message": "Send an email to alice@company.test with subject 'VPN tip' and body 'Use the corp-employees profile after SSO.'"
+}
+
+### Chat — list tickets
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "List the open support tickets."
+}
+
+### Chat — read a specific ticket
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "Read ticket-002 and summarize the issue."
+}
+
+### Chat — create ticket (mock sink)
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "Create a ticket titled 'Laptop cannot join VPN' in project it with severity P3 and summary 'User reports VPN profile missing after reimage.'"
 }
