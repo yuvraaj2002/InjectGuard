@@ -1,0 +1,28 @@
+@baseUrl = http://127.0.0.1:8000
+
+### Health check
+GET {{baseUrl}}/health
+
+### Chat — password reset
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "How do I reset my password?"
+}
+
+### Chat — VPN access
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "How do I connect to the company VPN?"
+}
+
+### Chat — ticket triage
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "What severity should I use for a production outage ticket?"
+}
