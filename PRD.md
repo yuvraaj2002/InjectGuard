@@ -153,8 +153,8 @@ flowchart LR
   - (b) every retrieved chunk and tool/MCP output (E2–E4) — **implement tool/doc outputs first** (where indirect injection already succeeded in the lab).
 - Interface: `score(text) -> Verdict` with at least `{injection: bool, confidence: float, reason: str}`.
 - Backend choices (pick one to start; keep the interface swappable):
-  - **Preferred for local lab:** a dedicated guard/classifier model (e.g. Llama Prompt Guard 2 or equivalent small decision model via HF / local runtime).
-  - **Fallback:** a small Ollama LLM judge with a strict JSON verdict schema.
+  - **Chosen for local lab:** Ollama **System One** decision API (`POST /v1/systemone`) with a `noul` yes/no question (`tev1:0.8b` or another System One–capable model). Client: `defenses/s1_detection/decision_model_inference.py` → `Verdict`.
+  - **Optional later:** Llama Prompt Guard 2 (HF) or another classifier behind the same `score(text) -> Verdict` interface.
 - **Action on detection:** user input → block with a safe message. Untrusted chunk → `drop | redact | flag` (configurable) and log the verdict + latency.
 - **Later / optional (not day-1):** cheap heuristics as a pre-filter; spotlighting (delimiters / datamark / encode) as defense-in-depth after the guard path works.
 

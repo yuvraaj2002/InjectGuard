@@ -140,3 +140,15 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - **S1 primary path (locked in PRD):** a decision/guard model scores user + tool/doc text before it enters context (`score(text) -> Verdict`), then block/drop/redact.
 - Heuristics and spotlighting are useful extras; they are not the main 2026-quality detector.
 - Still pair with **action policy (S3)** — no classifier is perfect.
+
+---
+
+## 2026-11-09 — System One `noul` as the injection verdict
+
+### What we built
+- `defenses/s1_detection/decision_model_inference.py` calling Ollama `POST /v1/systemone` with model `tev1:0.8b`.
+
+### Concepts worth remembering
+- System One is a **decision API**, not chat: you pass `state` + typed `questions`; for yes/no use `type: noul` and read `answers.*.noul` ∈ [0, 1] = P(true).
+- Map to our Verdict: `confidence = noul`, `injection = noul >= threshold` (config `INJECTION_THRESHOLD`).
+- Same scorer can run on **user input**, **retrieved docs**, and **tool outputs** — only the `source` label and the action (block vs drop) change.
