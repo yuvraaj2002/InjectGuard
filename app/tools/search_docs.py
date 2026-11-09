@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import DOCS_DIR, PROJECT_ROOT, SEARCH_TOP_K
 
+logger = logging.getLogger(__name__)
 _TOKEN_RE = re.compile(r"[a-z0-9_]+", re.IGNORECASE)
 
 
@@ -64,7 +66,14 @@ def search_docs(query: str, top_k: int = SEARCH_TOP_K) -> list[DocHit]:
         )
 
     hits.sort(key=lambda hit: (-hit.score, hit.path))
-    return hits[:top_k]
+    selected = hits[:top_k]
+    logger.info(
+        "search_docs query=%r matched=%s returning=%s",
+        query,
+        len(hits),
+        [hit.path for hit in selected],
+    )
+    return selected
 
 
 def format_hits(hits: list[DocHit]) -> str:
