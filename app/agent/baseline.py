@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import ollama
+from rich import print
 
 from app.agent.prompt import SYSTEM_PROMPT
 from app.config import MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
@@ -72,6 +73,24 @@ class BaselineAgent:
         logger.warning("Unknown tool requested: %s", name)
         return f"Unknown tool: {name}"
 
+    def _print_model_response(self, round_index: int, assistant_message: Any) -> None:
+        content = (assistant_message.content or "").strip()
+        tool_calls = assistant_message.tool_calls or []
+        print(f"[bold cyan]Model response (round {round_index})[/bold cyan]")
+        if content:
+            print(content)
+        else:
+            print("[dim]<empty content>[/dim]")
+        if tool_calls:
+            printed_calls = [
+                {
+                    "name": call.function.name,
+                    "arguments": self._parse_tool_arguments(call.function.arguments or {}),
+                }
+                for call in tool_calls
+            ]
+            print("[bold yellow]tool_calls[/bold yellow]", printed_calls)
+
     def chat(self, message: str) -> str:
         logger.info("Starting baseline chat with model=%s", self.model)
         messages: list[dict[str, Any]] = [
@@ -87,6 +106,7 @@ class BaselineAgent:
                 tools=self.tools,
             )
             assistant_message = response.message
+            self._print_model_response(round_index, assistant_message)
             messages.append(
                 {
                     "role": "assistant",
@@ -118,6 +138,7 @@ class BaselineAgent:
             self.max_tool_rounds,
         )
         final = self._client.chat(model=self.model, messages=messages)
+        self._print_model_response(self.max_tool_rounds + 1, final.message)
         reply = (final.message.content or "").strip() or "No response generated."
         logger.info("Baseline chat completed after max tool rounds")
         return reply

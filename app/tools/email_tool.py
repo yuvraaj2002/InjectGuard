@@ -15,8 +15,10 @@ READ_EMAIL_TOOL: dict[str, Any] = {
     "function": {
         "name": "read_email",
         "description": (
-            "Read synthetic internal emails. Pass email_id for one message, "
-            "or query to keyword-search subjects/bodies. Omit both to list recent emails."
+            "Read synthetic internal emails. "
+            "To list all emails, call with NO arguments (do not pass query). "
+            "Pass email_id to fetch one message. "
+            "Pass query only for keyword search over subject/body (e.g. 'vpn', 'password')."
         ),
         "parameters": {
             "type": "object",
@@ -27,7 +29,10 @@ READ_EMAIL_TOOL: dict[str, Any] = {
                 },
                 "query": {
                     "type": "string",
-                    "description": "Optional keywords to filter emails.",
+                    "description": (
+                        "Keyword filter for subject/body content. "
+                        "Omit this field entirely to list all emails."
+                    ),
                 },
             },
             "required": [],

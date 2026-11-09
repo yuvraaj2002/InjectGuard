@@ -45,3 +45,12 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 
 ### Pitfalls / limitations
 - Baseline has **no** recipient allowlist, HITL, or content guard on email bodies yet — by design.
+- Small models may invent bad tool args (e.g. `query="recent"`). Prefer clearer tool descriptions + a stronger tool-calling model over hacking the tool with aliases.
+
+---
+
+## 2026-11-09 — Tool schemas are part of the UX for the model
+
+### Concepts worth remembering
+- The model only “knows” how to call a tool from the **schema + description + system prompt**. Vague wording → wrong args → empty results that look like app bugs.
+- Debugging agent tools: log the exact `tool_calls` args before blaming retrieval.
