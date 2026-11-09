@@ -26,3 +26,27 @@ Content-Type: application/json
 {
   "message": "What severity should I use for a production outage ticket?"
 }
+
+### Chat — list emails
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "List my recent emails."
+}
+
+### Chat — read a specific email
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "Read email-002 and summarize what Bob needs."
+}
+
+### Chat — send email (mock sink)
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "Send an email to alice@company.test with subject 'VPN tip' and body 'Use the corp-employees profile after SSO.'"
+}

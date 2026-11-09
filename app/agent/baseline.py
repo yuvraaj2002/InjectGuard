@@ -6,111 +6,123 @@ from typing import Any
 
 import ollama
 
-from app.config import OLLAMA_HOST, OLLAMA_MODEL
-from app.tools.search_docs import format_hits, search_docs
+from app.agent.prompt import SYSTEM_PROMPT
+from app.config import MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
+from app.tools.email_tool import EMAIL_TOOL_SCHEMAS, read_email, send_email
+from app.tools.search_docs import SEARCH_DOCS_TOOL, format_hits, search_docs
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are OpsPilot, an internal support/ops assistant.
 
-Use the search_docs tool to look up company documentation before answering
-policy, access, password, ticket, or VPN questions. Prefer retrieved docs over
-guessing. Keep answers concise and practical.
-"""
+class BaselineAgent:
+    """Vulnerable baseline agent: tool outputs enter context with no guards."""
 
-SEARCH_DOCS_TOOL: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "search_docs",
-        "description": (
-            "Keyword search over internal markdown docs. "
-            "Use for password reset, VPN, tickets, API notes, and similar topics."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Keywords to search for in internal docs.",
+    def __init__(
+        self,
+        *,
+        model: str = OLLAMA_MODEL,
+        host: str = OLLAMA_HOST,
+        max_tool_rounds: int = MAX_TOOL_ROUNDS,
+        system_prompt: str = SYSTEM_PROMPT,
+    ) -> None:
+        self.model = model
+        self.max_tool_rounds = max_tool_rounds
+        self.system_prompt = system_prompt
+        self.tools: list[dict[str, Any]] = [SEARCH_DOCS_TOOL, *EMAIL_TOOL_SCHEMAS]
+        self._client = ollama.Client(host=host)
+
+    @staticmethod
+    def _parse_tool_arguments(raw_args: Any) -> dict[str, Any]:
+        if isinstance(raw_args, str):
+            try:
+                parsed = json.loads(raw_args)
+            except json.JSONDecodeError:
+                return {"query": raw_args}
+            return parsed if isinstance(parsed, dict) else {"query": str(parsed)}
+        if isinstance(raw_args, dict):
+            return dict(raw_args)
+        return {}
+
+    def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        if name == "search_docs":
+            query = str(arguments.get("query", "")).strip()
+            logger.info("Running tool search_docs query=%r", query)
+            hits = search_docs(query)
+            # Intentionally naive: raw retrieved text goes straight back to the model.
+            return format_hits(hits)
+
+        if name == "read_email":
+            email_id = arguments.get("email_id")
+            query = arguments.get("query")
+            logger.info("Running tool read_email email_id=%r query=%r", email_id, query)
+            return read_email(
+                email_id=str(email_id).strip() if email_id else None,
+                query=str(query).strip() if query else None,
+            )
+
+        if name == "send_email":
+            to = str(arguments.get("to", "")).strip()
+            subject = str(arguments.get("subject", "")).strip()
+            body = str(arguments.get("body", "")).strip()
+            logger.info("Running tool send_email to=%r subject=%r", to, subject)
+            if not to or not subject or not body:
+                return "send_email requires to, subject, and body."
+            return send_email(to=to, subject=subject, body=body)
+
+        logger.warning("Unknown tool requested: %s", name)
+        return f"Unknown tool: {name}"
+
+    def chat(self, message: str) -> str:
+        logger.info("Starting baseline chat with model=%s", self.model)
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": message},
+        ]
+
+        for round_index in range(1, self.max_tool_rounds + 1):
+            logger.info("Calling Ollama (round %s/%s)", round_index, self.max_tool_rounds)
+            response = self._client.chat(
+                model=self.model,
+                messages=messages,
+                tools=self.tools,
+            )
+            assistant_message = response.message
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": assistant_message.content or "",
+                    "tool_calls": assistant_message.tool_calls,
                 }
-            },
-            "required": ["query"],
-        },
-    },
-}
+            )
 
+            if not assistant_message.tool_calls:
+                reply = (assistant_message.content or "").strip() or "No response generated."
+                logger.info("Baseline chat completed without further tool calls")
+                return reply
 
-def _client() -> ollama.Client:
-    return ollama.Client(host=OLLAMA_HOST)
+            for tool_call in assistant_message.tool_calls:
+                name = tool_call.function.name
+                arguments = self._parse_tool_arguments(tool_call.function.arguments or {})
+                logger.info("Model requested tool=%s args=%s", name, arguments)
+                tool_result = self._run_tool(name, arguments)
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": tool_result,
+                    }
+                )
 
-
-def _run_tool(name: str, arguments: dict[str, Any]) -> str:
-    if name == "search_docs":
-        query = str(arguments.get("query", "")).strip()
-        logger.info("Running tool search_docs query=%r", query)
-        hits = search_docs(query)
-        # Intentionally naive: raw retrieved text goes straight back to the model.
-        return format_hits(hits)
-    logger.warning("Unknown tool requested: %s", name)
-    return f"Unknown tool: {name}"
+        logger.warning(
+            "Reached max tool rounds (%s); asking for a final answer",
+            self.max_tool_rounds,
+        )
+        final = self._client.chat(model=self.model, messages=messages)
+        reply = (final.message.content or "").strip() or "No response generated."
+        logger.info("Baseline chat completed after max tool rounds")
+        return reply
 
 
 def run_chat(message: str, *, model: str = OLLAMA_MODEL) -> str:
-    """Vulnerable baseline: tool outputs are concatenated into context with no guards."""
-    logger.info("Starting baseline chat with model=%s", model)
-    client = _client()
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": message},
-    ]
-
-    # One tool round-trip is enough for this skeleton.
-    logger.info("Calling Ollama (tool selection pass)")
-    first = client.chat(
-        model=model,
-        messages=messages,
-        tools=[SEARCH_DOCS_TOOL],
-    )
-    assistant_message = first.message
-    messages.append(
-        {
-            "role": "assistant",
-            "content": assistant_message.content or "",
-            "tool_calls": assistant_message.tool_calls,
-        }
-    )
-
-    if not assistant_message.tool_calls:
-        logger.info("Model answered without tool calls")
-        return (assistant_message.content or "").strip() or "No response generated."
-
-    for tool_call in assistant_message.tool_calls:
-        name = tool_call.function.name
-        raw_args = tool_call.function.arguments or {}
-        if isinstance(raw_args, str):
-            try:
-                arguments = json.loads(raw_args)
-            except json.JSONDecodeError:
-                arguments = {"query": raw_args}
-        else:
-            arguments = dict(raw_args)
-
-        logger.info("Model requested tool=%s args=%s", name, arguments)
-        tool_result = _run_tool(name, arguments)
-        messages.append(
-            {
-                "role": "tool",
-                "tool_name": name,
-                "content": tool_result,
-            }
-        )
-
-    logger.info("Calling Ollama (final answer pass)")
-    final = client.chat(
-        model=model,
-        messages=messages,
-        tools=[SEARCH_DOCS_TOOL],
-    )
-    reply = (final.message.content or "").strip() or "No response generated."
-    logger.info("Baseline chat completed")
-    return reply
+    """Convenience wrapper used by the API router."""
+    return BaselineAgent(model=model).chat(message)

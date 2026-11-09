@@ -23,3 +23,6 @@ venv/
 htmlcov/
 .mypy_cache/
 .ruff_cache/
+
+# Lab runtime sinks
+data/synthetic/email_sink.jsonl

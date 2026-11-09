@@ -4,11 +4,33 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.config import DOCS_DIR, PROJECT_ROOT, SEARCH_TOP_K
 
 logger = logging.getLogger(__name__)
 _TOKEN_RE = re.compile(r"[a-z0-9_]+", re.IGNORECASE)
+
+SEARCH_DOCS_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": "search_docs",
+        "description": (
+            "Keyword search over internal markdown docs. "
+            "Use for password reset, VPN, tickets, API notes, and similar topics."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords to search for in internal docs.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
 
 
 @dataclass(frozen=True)
