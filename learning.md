@@ -226,3 +226,15 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - **Best lab theme for prompt injection:** internal **banking / payments ops** assistant (not a public chatbot). Stakes are intuitive; write tools map cleanly to policy (`transfer.to_account`, `amount`, `payee`).
 - Theme helps S3: allowlists, HITL, and oracles (“did funds leave to attacker account?”) beat vague “email was sent.”
 - Keep it synthetic (`*.test` accounts, local sinks) — never real banking APIs.
+
+---
+
+## 2026-11-10 — PRD as portfolio problem statement (BankOps)
+
+### What we built
+- Rewrote `PRD.md` v0.3: **problem first** → AI Engineer build plan → **P1–P10 problems to solve** → S1/S2/S3 → eval/portfolio pitch.
+- Locked simplicity: **keyword RAG, no vector DB**.
+
+### Concepts worth remembering
+- Portfolio narrative: *business need → dangerous agent → attacks that work → layered defenses → measured trade-offs*.
+- Multiple problems beat a single “add a guardrail” story: threat model, oracles, detection limits, isolation, write-tool policy, ablation.
