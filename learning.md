@@ -159,8 +159,34 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 
 ### What we built
 - `ContentGuard` wired in the agent: block on user input; drop/flag on retrieved context (`search_docs` / `read_email` / `read_ticket`) and other tool outputs.
-- API returns `guard_events` + `blocked`; UI shows a 3D interactive layer stack (React Three Fiber) that lights up per verdict.
+- API returns `guard_events` + `blocked`; UI shows an SVG **node/edge flow graph** (user → decision model → yes/block or no/continue → later gates).
 
 ### Concepts worth remembering
 - **Same detector, different actions:** input → refuse the request; untrusted content → withhold from context (drop) so the planner never “sees” the poison.
-- Demo UX matters for security labs: showing *which layer fired* teaches the architecture better than a binary “blocked” toast.
+- Demo UX matters for security labs: a readable trust-boundary graph teaches architecture better than a binary “blocked” toast (or an overbuilt 3D scene).
+
+---
+
+## 2026-11-10 — Level 2 after S1: architectural isolation (not another detector)
+
+### Concepts worth remembering
+- **S1 is probabilistic.** A clever paraphrase can slip past `noul`. Level 2 assumes some poison still reaches the system and asks: *can that text steal the steering wheel?*
+- **Dual-LLM / Plan-Then-Execute:**
+  - **P-LLM (privileged):** sees user intent + tool schemas only → writes a fixed **plan** (`read_email` then `send_email` with `$summary`) *before* untrusted data is read.
+  - **Q-LLM (quarantined):** sees email/doc/ticket text, has **no tools**, may only return **schema-valid structured facts** (summary, fields). Instruction-looking text becomes data extraction, not tool calls.
+  - **Executor (code):** runs the plan, binds `$vars`, attaches **taint**, and blocks tainted values from sensitive args (`to`, `assignee`) unless allowlisted/HITL.
+- Interview line: “S1 asks *is this text evil?* S2 asks *even if it is, can it choose what we do?*”
+- **P-LLM has schemas, not live tools.** It outputs a JSON plan; the executor calls tools. That stops *indirect* injection from rewriting control flow (plan is fixed before email/doc text is read).
+- **Direct user malice is different:** a user can still ask for a bad plan. S2 doesn’t replace allowlists/HITL (S3) or S1 on user input — it mainly stops *retrieved/tool text* from steering the agent.
+
+---
+
+## 2026-11-10 — Privileged planner (P-LLM) scaffold
+
+### What we built
+- `defenses/s2_isolation/`: `schema.py` (`AgentPlan` / `PlanStep`), `prompt.py`, `planner.py` (`PlannerLLM`).
+- Planner input = user request + tool schemas only → JSON plan with optional `$variables`. No tool execution.
+
+### Concepts worth remembering
+- Pinning control flow means a **validated plan object**, not vibes: known tools only, step cap, parseable JSON.
+- `$email_summary`-style placeholders are slots for the future quarantined extractor / executor — not live tool results inside the planner.

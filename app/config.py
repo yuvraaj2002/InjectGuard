@@ -25,3 +25,7 @@ GUARD_CONTENT_ACTION = "drop"
 
 SEARCH_TOP_K = 3
 MAX_TOOL_ROUNDS = 4
+
+# S2 privileged planner (P-LLM) — plans before reading untrusted content
+PLANNER_MODEL = OLLAMA_MODEL
+MAX_PLAN_STEPS = 6

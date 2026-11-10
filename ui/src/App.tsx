@@ -229,8 +229,8 @@ function App() {
                 </motion.p>
               ) : (
                 <p className="empty">
-                  Send a query to see the final answer. Guard layer activity
-                  updates in the 3D panel above.
+                  Send a query to see the final answer. Guard activity updates
+                  in the flow graph above.
                 </p>
               )}
             </section>
