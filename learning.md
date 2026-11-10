@@ -192,3 +192,16 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - Pinning control flow means a **validated plan object**, not vibes: known tools only, step cap, parseable JSON.
 - `$email_summary`-style placeholders are slots for the future quarantined extractor / executor — not live tool results inside the planner.
 - Visual teaching order: S1 asks “is this text evil?”; S2 answers “even if poison arrives later, it cannot rewrite the plan.”
+
+---
+
+## 2026-11-10 — Next after planner: executor + Q-LLM; read vs write risk
+
+### What we built
+- `defenses/s2_isolation/executor.py`: `PlanExecutor` walks `AgentPlan` steps, resolves `$vars`, calls real tool functions, stores `save_as` outputs. No LLM in the executor.
+
+### Concepts worth remembering
+- **Next build order (S2):** (1) deterministic **executor** runs the pinned plan with real tool functions ✅, (2) **Q-LLM** extracts typed fields from untrusted text (no tools), (3) bind `$vars` + **taint**, (4) wire into the agent/UI. S1 decision model still sits on retrieved text as defense-in-depth.
+- **Read tools** (`search_docs`, `read_email`, `read_ticket`) are mostly a *data* risk: they can pull poisoned instructions into context. Mitigate with S1 filter + Q-LLM schema extract so poison becomes fields, not new tool calls.
+- **Write tools** (`send_email`, `create_ticket`) are an *action* risk: one bad call exfils or escalates. Mitigate with **scoped params** — tainted values must not fill `to` / `assignee` (allowlist / HITL = S3). Body/summary can still be tainted content under an output filter.
+- Interview line: “Reads bring poison in; writes let poison out. Detection helps reads; capability policy is mandatory for writes.”
