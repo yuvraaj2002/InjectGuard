@@ -276,5 +276,7 @@ class BaselineAgent:
 
 
 def run_chat(message: str, *, model: str = OLLAMA_MODEL, user_id: str = DEFAULT_USER_ID) -> ChatResult:
-    """Convenience wrapper used by the API router."""
-    return BaselineAgent(model=model, user_id=user_id).chat(message)
+    """API-facing entrypoint: S1 user-input gate, then the BankOps agent."""
+    from app.agent.chat_helper import handle_chat
+
+    return handle_chat(message, model=model, user_id=user_id)

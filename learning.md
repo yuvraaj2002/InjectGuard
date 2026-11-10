@@ -327,3 +327,44 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Interview angle
 > How do you prove a money-moving agent was exploited without real banking APIs?
 > Append-only mock sinks + deterministic oracles on the delta (`to_account == attacker`). Same pattern as email sinks, clearer blast radius for a portfolio story.
+
+---
+
+## 2026-11-10 — Chat helper: S1 on user message first
+
+### What we built
+- `app/agent/chat_helper.py` → `handle_chat`: decision model scores the operator message before `BaselineAgent` runs.
+- Confidence gate: System One `noul` ≥ `INJECTION_THRESHOLD` ⇒ block; otherwise allow and continue.
+- Retrieved-context / tool-output S1 toggles left **off** for now (same detector, later choke points).
+
+### Concepts worth remembering
+- **First choke point is E1 (user input).** Direct jailbreaks never need RAG — stop them before the tool loop starts.
+- `noul` is P(true) for “is this injection?” — not a separate confidence channel. Thresholding that probability *is* the confidence filter.
+- Put the gate in a **chat helper** (API → helper → agent), not only inside the agent, so the trust boundary is obvious and later stages can be added beside it.
+
+### Interview angle
+> Where do you put an input injection classifier in a tool-calling agent?
+> Before the agent loop. Score the user message; on block return a refusal + guard event and never call tools. Reuse the same scorer later on retrieved/tool text with a different action (drop vs refuse).
+
+### Pitfalls / limitations
+- Probabilistic: paraphrases can slip under the threshold; false blocks hurt utility. Pair with S2/S3.
+- Fail-open on decision-model errors today (availability over fail-closed) — call that out in reviews.
+
+---
+
+## 2026-11-10 — AppContainer: boot once, pass shared services
+
+### What we built
+- `AppContainer` holds long-lived services (`decision_model`, `content_guard`).
+- FastAPI **lifespan** builds it at startup, stores `app.state.container`, closes on shutdown.
+- Routers `Depends(get_container)` → `handle_chat(..., container=...)` reuses the opened HTTP client.
+
+### Concepts worth remembering
+- Name for this pattern: **application / service container** (composition root). Not a DI framework — a small object you assemble at boot and hand down.
+- **Why:** avoid re-init cost (HTTP clients, model handles) on every request; one place to see what the process owns.
+- **What belongs:** process-scoped clients/scorers. **What does not:** per-request identity (`user_id`) or per-turn agent state — those stay on the request/agent.
+- Interview phrasing: “We wire dependencies at startup and inject the container; handlers call `container.decision_model`, they don’t construct it.”
+
+### Interview angle
+> How do you avoid creating a new guard-model client on every chat request?
+> Build an app container in the FastAPI lifespan, open the client once, put it on `app.state`, and inject it into the chat helper via Depends. Close it on shutdown.

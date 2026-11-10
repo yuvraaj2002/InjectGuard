@@ -21,10 +21,10 @@ DECISION_MODEL_TIMEOUT_S = 30.0
 # noul >= threshold ⇒ treat as prompt injection / jailbreak
 INJECTION_THRESHOLD = 0.45
 
-# S1 toggles — score before text enters the agent context
+# S1 toggles — start with user-message gate only; enable later stages after that lands.
 GUARD_INPUT = True
-GUARD_RETRIEVED_CONTEXT = True  # read-tool outputs before they re-enter context
-GUARD_TOOL_OUTPUT = True  # other tool results (e.g. transfer / refund confirmations)
+GUARD_RETRIEVED_CONTEXT = False  # TODO: score search_policies / read_dispute / … before re-entry
+GUARD_TOOL_OUTPUT = False  # TODO: score transfer/refund confirmations before re-entry
 # When retrieved/tool content is flagged: "drop" (replace) or "flag" (log only)
 GUARD_CONTENT_ACTION = "drop"
 

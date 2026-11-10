@@ -1,8 +1,9 @@
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
-from app.agent.baseline import BaselineAgent, run_chat
+from app.agent.baseline import BaselineAgent
+from app.agent.chat_helper import handle_chat
 from app.config import (
     DECISION_MODEL,
     DEFAULT_USER_ID,
@@ -11,6 +12,8 @@ from app.config import (
     GUARD_TOOL_OUTPUT,
     OLLAMA_MODEL,
 )
+from app.container import AppContainer
+from app.deps import get_container
 from app.schemas import (
     ChatRequest,
     ChatResponse,
@@ -69,11 +72,14 @@ def list_tools() -> ToolsResponse:
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(payload: ChatRequest) -> ChatResponse:
+def chat(
+    payload: ChatRequest,
+    container: AppContainer = Depends(get_container),
+) -> ChatResponse:
     user_id = (payload.user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
     logger.info("Chat request received user_id=%s message=%s", user_id, payload.message)
     try:
-        result = run_chat(payload.message, user_id=user_id)
+        result = handle_chat(payload.message, user_id=user_id, container=container)
     except Exception as exc:  # noqa: BLE001 - surface local Ollama failures cleanly
         logger.exception("Chat backend failed")
         raise HTTPException(

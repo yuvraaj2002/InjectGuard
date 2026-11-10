@@ -41,9 +41,14 @@ class DecisionModel:
         self._url = f"{self.host}/v1/systemone"
         self._http: httpx.Client | None = None
 
-    def __enter__(self) -> DecisionModel:
-        self._http = httpx.Client(timeout=self.timeout_s)
+    def open(self) -> DecisionModel:
+        """Open a reusable HTTP client (call once at app boot via AppContainer)."""
+        if self._http is None:
+            self._http = httpx.Client(timeout=self.timeout_s)
         return self
+
+    def __enter__(self) -> DecisionModel:
+        return self.open()
 
     def __exit__(self, *_exc: object) -> None:
         self.close()
