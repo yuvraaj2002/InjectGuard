@@ -36,6 +36,7 @@ class ChatResult:
     user_id: str = DEFAULT_USER_ID
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     guard_events: list[Any] = field(default_factory=list)  # filled later when ContentGuard is wired
+    plan: dict[str, Any] | None = None  # pinned S2 plan (goal + steps), if any
     blocked: bool = False
 
 

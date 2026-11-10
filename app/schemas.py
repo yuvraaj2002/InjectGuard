@@ -57,4 +57,5 @@ class ChatResponse(BaseModel):
     available_tools: list[str]
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
     guard_events: list[GuardEventTrace] = Field(default_factory=list)
+    plan: dict[str, Any] | None = None
     blocked: bool = False

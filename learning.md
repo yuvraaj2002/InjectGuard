@@ -373,3 +373,23 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - `DecisionModel` is now just **open / score / close**. `score(text) → Verdict(injection, confidence)`.
 - No module-level singleton (`score_text`); the container *is* the shared instance.
 - `ContentGuard` (`guard.py`) stays in the repo but is **not** wired into `handle_chat` yet — chat path is only decision-model reject-or-continue.
+
+---
+
+## 2026-11-10 — Chat path: S1 then plan-then-execute (no ReAct tools)
+
+### What we built
+- After S1 allow: `PlannerLLM` (user message + tool schemas) → pinned `AgentPlan`.
+- `PlanExecutor` runs that plan in code; session `user_id` injected there.
+- Final reply LLM has **no tools** — only formats goal + tool outputs.
+- `AppContainer` now holds `decision_model` + `planner`. API returns `plan`.
+
+### Concepts worth remembering
+- **Architectural differentiation:** S1 asks “is the user message evil?”; S2 asks “can untrusted tool/doc text steal the steering wheel?” by pinning tools *before* reading them.
+- Planner sees **schemas**, not live tools and not dispute/policy bodies.
+- Sticking to the plan means the runtime loop cannot invent new tool calls mid-turn.
+- `$variables` still need Q-LLM/taint later; prefer user literals in plans until then.
+
+### Interview angle
+> Why not let the agent pick tools with ReAct after each observation?
+> Because observations can contain instructions. If the model re-plans after reading a poisoned dispute, the poison can choose `transfer_funds`. Plan-then-execute freezes control flow first.
