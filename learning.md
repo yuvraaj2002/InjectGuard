@@ -201,7 +201,18 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - `defenses/s2_isolation/executor.py`: `PlanExecutor` walks `AgentPlan` steps, resolves `$vars`, calls real tool functions, stores `save_as` outputs. No LLM in the executor.
 
 ### Concepts worth remembering
-- **Next build order (S2):** (1) deterministic **executor** runs the pinned plan with real tool functions ✅, (2) **Q-LLM** extracts typed fields from untrusted text (no tools), (3) bind `$vars` + **taint**, (4) wire into the agent/UI. S1 decision model still sits on retrieved text as defense-in-depth.
+- **Next build order (S2):** (1) deterministic **executor** runs the pinned plan with real tool functions ✅, (2) **Q-LLM** extracts typed fields from untrusted text (no tools) ✅, (3) bind `$vars` + **taint** into the executor loop, (4) wire into the agent/UI. S1 decision model still sits on retrieved text as defense-in-depth.
+
+---
+
+## 2026-11-10 — Quarantined LLM (Q-LLM) extractor
+
+### What we built
+- `defenses/s2_isolation/quarantine.py` + `ExtractedContent` schema: untrusted text → validated JSON fields (`summary`, `key_points`, …). No tools.
+
+### Concepts worth remembering
+- Q-LLM’s job is **data extraction under a schema**, not “answer helpfully.” Jailbreak text in an email should become summary noise, not a `send_email` call.
+- `to_variables(prefix=…)` turns the struct into executor `$slots` (e.g. `email_summary`) — still without taint labels until the next wiring step.
 - **Read tools** (`search_docs`, `read_email`, `read_ticket`) are mostly a *data* risk: they can pull poisoned instructions into context. Mitigate with S1 filter + Q-LLM schema extract so poison becomes fields, not new tool calls.
 - **Write tools** (`send_email`, `create_ticket`) are an *action* risk: one bad call exfils or escalates. Mitigate with **scoped params** — tainted values must not fill `to` / `assignee` (allowlist / HITL = S3). Body/summary can still be tainted content under an output filter.
 - Interview line: “Reads bring poison in; writes let poison out. Detection helps reads; capability policy is mandatory for writes.”

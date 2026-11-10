@@ -78,3 +78,61 @@ def is_variable_ref(value: Any) -> bool:
 
 
 PlanStatus = Literal["ok", "invalid", "empty"]
+
+
+class ExtractedContent(BaseModel):
+    """Schema-validated facts from untrusted text (Q-LLM output). No tools."""
+
+    summary: str = Field(default="", description="Neutral summary of the content.")
+    key_points: list[str] = Field(default_factory=list)
+    title: str | None = Field(default=None, description="Suggested short title if relevant.")
+    project: str | None = Field(default=None, description="Mentioned project if any.")
+    severity: str | None = Field(
+        default=None,
+        description="Mentioned severity if any (e.g. LOW/MEDIUM/HIGH/CRITICAL).",
+    )
+    # Extracted as data only — must NOT be trusted for write-tool sensitive params later.
+    mentioned_emails: list[str] = Field(default_factory=list)
+    mentioned_people: list[str] = Field(default_factory=list)
+
+    def to_variables(self, *, prefix: str = "extract") -> dict[str, str]:
+        """Flatten into executor variable slots (strings only)."""
+        base = prefix.lstrip("$") or "extract"
+        return {
+            f"{base}_summary": self.summary,
+            f"{base}_key_points": "; ".join(self.key_points),
+            f"{base}_title": self.title or "",
+            f"{base}_project": self.project or "",
+            f"{base}_severity": self.severity or "",
+            f"{base}_mentioned_emails": ", ".join(self.mentioned_emails),
+            f"{base}_mentioned_people": ", ".join(self.mentioned_people),
+        }
+
+
+class ExtractedContent(BaseModel):
+    """Schema-validated facts from untrusted text (Q-LLM output). No tools."""
+
+    summary: str = Field(default="", description="Neutral summary of the content.")
+    key_points: list[str] = Field(default_factory=list)
+    title: str | None = Field(default=None, description="Suggested short title if relevant.")
+    project: str | None = Field(default=None, description="Mentioned project if any.")
+    severity: str | None = Field(
+        default=None,
+        description="Mentioned severity if any (e.g. LOW/MEDIUM/HIGH/CRITICAL).",
+    )
+    # Extracted as data only — must NOT be trusted for write-tool sensitive params later.
+    mentioned_emails: list[str] = Field(default_factory=list)
+    mentioned_people: list[str] = Field(default_factory=list)
+
+    def to_variables(self, *, prefix: str = "extract") -> dict[str, str]:
+        """Flatten into executor variable slots (strings only)."""
+        base = prefix.lstrip("$") or "extract"
+        return {
+            f"{base}_summary": self.summary,
+            f"{base}_key_points": "; ".join(self.key_points),
+            f"{base}_title": self.title or "",
+            f"{base}_project": self.project or "",
+            f"{base}_severity": self.severity or "",
+            f"{base}_mentioned_emails": ", ".join(self.mentioned_emails),
+            f"{base}_mentioned_people": ", ".join(self.mentioned_people),
+        }

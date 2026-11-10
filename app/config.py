@@ -29,3 +29,7 @@ MAX_TOOL_ROUNDS = 4
 # S2 privileged planner (P-LLM) — plans before reading untrusted content
 PLANNER_MODEL = OLLAMA_MODEL
 MAX_PLAN_STEPS = 6
+
+# S2 quarantined extractor (Q-LLM) — schema-only, no tools
+QUARANTINE_MODEL = OLLAMA_MODEL
+QUARANTINE_MAX_INPUT_CHARS = 8000
