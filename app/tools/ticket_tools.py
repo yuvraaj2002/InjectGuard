@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from app.config import TICKETS_PATH, TICKET_SINK_PATH
@@ -84,37 +83,33 @@ CREATE_TICKET_TOOL: dict[str, Any] = {
 TICKET_TOOL_SCHEMAS: list[dict[str, Any]] = [READ_TICKET_TOOL, CREATE_TICKET_TOOL]
 
 
-def _load_tickets(path: Path = TICKETS_PATH) -> list[dict[str, Any]]:
-    if not path.exists():
-        logger.warning("Tickets file missing: %s", path)
-        return []
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _format_ticket(ticket: dict[str, Any]) -> str:
-    return (
-        f"id: {ticket.get('id')}\n"
-        f"title: {ticket.get('title')}\n"
-        f"project: {ticket.get('project')}\n"
-        f"severity: {ticket.get('severity')}\n"
-        f"assignee: {ticket.get('assignee')}\n"
-        f"reporter: {ticket.get('reporter')}\n"
-        f"status: {ticket.get('status')}\n"
-        f"summary:\n{ticket.get('summary', '')}"
-    )
-
-
 def read_ticket(ticket_id: str | None = None, query: str | None = None) -> str:
     """Read synthetic tickets. Untrusted content is returned raw (vulnerable baseline)."""
-    tickets = _load_tickets()
+    if not TICKETS_PATH.exists():
+        logger.warning("Tickets file missing: %s", TICKETS_PATH)
+        return "No tickets available."
+
+    tickets: list[dict[str, Any]] = json.loads(TICKETS_PATH.read_text(encoding="utf-8"))
     if not tickets:
         return "No tickets available."
+
+    def render(ticket: dict[str, Any]) -> str:
+        return (
+            f"id: {ticket.get('id')}\n"
+            f"title: {ticket.get('title')}\n"
+            f"project: {ticket.get('project')}\n"
+            f"severity: {ticket.get('severity')}\n"
+            f"assignee: {ticket.get('assignee')}\n"
+            f"reporter: {ticket.get('reporter')}\n"
+            f"status: {ticket.get('status')}\n"
+            f"summary:\n{ticket.get('summary', '')}"
+        )
 
     if ticket_id:
         for ticket in tickets:
             if ticket.get("id") == ticket_id:
                 logger.info("read_ticket id=%s", ticket_id)
-                return _format_ticket(ticket)
+                return render(ticket)
         logger.info("read_ticket id=%s not found", ticket_id)
         return f"Ticket not found: {ticket_id}"
 
@@ -131,21 +126,16 @@ def read_ticket(ticket_id: str | None = None, query: str | None = None) -> str:
                     str(ticket.get("assignee", "")),
                 ]
             ).lower()
-            if tokens and all(token in haystack for token in tokens):
-                matches.append(ticket)
-            elif not tokens:
+            if not tokens or all(token in haystack for token in tokens):
                 matches.append(ticket)
         logger.info("read_ticket query=%r matches=%s", query, len(matches))
         if not matches:
             return f"No tickets matched query={query!r}."
-        return "\n\n---\n\n".join(_format_ticket(ticket) for ticket in matches)
+        return "\n\n---\n\n".join(render(ticket) for ticket in matches)
 
     logger.info("read_ticket list_all count=%s", len(tickets))
     summaries = [
-        (
-            f"{ticket.get('id')}: {ticket.get('title')} "
-            f"[{ticket.get('project')}/{ticket.get('severity')}]"
-        )
+        f"{ticket.get('id')}: {ticket.get('title')} [{ticket.get('project')}/{ticket.get('severity')}]"
         for ticket in tickets
     ]
     return "Open tickets:\n" + "\n".join(summaries)
@@ -159,9 +149,7 @@ def create_ticket(title: str, project: str, severity: str, summary: str, assigne
     if project_key not in ALLOWED_PROJECTS:
         return f"Invalid project={project!r}. Allowed: {', '.join(ALLOWED_PROJECTS)}."
     if severity_key not in ALLOWED_SEVERITIES:
-        return (
-            f"Invalid severity={severity!r}. Allowed: {', '.join(ALLOWED_SEVERITIES)}."
-        )
+        return f"Invalid severity={severity!r}. Allowed: {', '.join(ALLOWED_SEVERITIES)}."
 
     resolved_assignee = (assignee or f"{project_key}-queue").strip()
     ticket_id = f"ticket-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"

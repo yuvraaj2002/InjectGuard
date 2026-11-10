@@ -37,7 +37,7 @@ def _guard_layers() -> list[GuardLayerInfo]:
             id="retrieved_context",
             label="Retrieved context",
             enabled=GUARD_RETRIEVED_CONTEXT,
-            description="Scores search_docs / read_email / read_ticket text before it enters context.",
+            description="Scores search_policies / read_email / read_ticket text before it enters context.",
         ),
         GuardLayerInfo(
             id="tool_output",

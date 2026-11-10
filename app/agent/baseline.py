@@ -11,7 +11,7 @@ from rich import print
 from app.agent.prompt import SYSTEM_PROMPT
 from app.config import MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
 from app.tools.email_tool import EMAIL_TOOL_SCHEMAS, read_email, send_email
-from app.tools.search_docs import SEARCH_DOCS_TOOL, format_hits, search_docs
+from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS, create_ticket, read_ticket
 from defenses.s1_detection.guard import ContentGuard, GuardEvent
 
@@ -51,7 +51,7 @@ class BaselineAgent:
         self.max_tool_rounds = max_tool_rounds
         self.system_prompt = system_prompt
         self.tools: list[dict[str, Any]] = [
-            SEARCH_DOCS_TOOL,
+            SEARCH_POLICIES_TOOL,
             *EMAIL_TOOL_SCHEMAS,
             *TICKET_TOOL_SCHEMAS,
         ]
@@ -88,11 +88,10 @@ class BaselineAgent:
         return {}
 
     def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        if name == "search_docs":
+        if name == "search_policies":
             query = str(arguments.get("query", "")).strip()
-            logger.info("Running tool search_docs query=%r", query)
-            hits = search_docs(query)
-            return format_hits(hits)
+            logger.info("Running tool search_policies query=%r", query)
+            return search_policies(query)
 
         if name == "read_email":
             email_id = _optional_str(arguments.get("email_id"))

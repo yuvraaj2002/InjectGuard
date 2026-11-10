@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 ALLOWED_TOOLS: frozenset[str] = frozenset(
-    {"search_docs", "read_email", "send_email", "read_ticket", "create_ticket"}
+    {"search_policies", "read_email", "send_email", "read_ticket", "create_ticket"}
 )
 
 # Must not be filled from untrusted retrieved text without policy later.

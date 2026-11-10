@@ -18,12 +18,12 @@ INJECTION_THRESHOLD = 0.45
 
 # S1 toggles — score before text enters the agent context
 GUARD_INPUT = True
-GUARD_RETRIEVED_CONTEXT = True  # search_docs / read_email / read_ticket outputs
+GUARD_RETRIEVED_CONTEXT = True  # search_policies / read_email / read_ticket outputs
 GUARD_TOOL_OUTPUT = True  # other tool outputs (e.g. send_email / create_ticket)
 # When retrieved/tool content is flagged: "drop" (replace) or "flag" (log only)
 GUARD_CONTENT_ACTION = "drop"
 
-SEARCH_TOP_K = 3
+SEARCH_TOP_K = 5
 MAX_TOOL_ROUNDS = 4
 
 # S2 privileged planner (P-LLM) — plans before reading untrusted content

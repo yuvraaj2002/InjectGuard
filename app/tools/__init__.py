@@ -5,7 +5,7 @@ from app.tools.email_tool import (
     read_email,
     send_email,
 )
-from app.tools.search_docs import SEARCH_DOCS_TOOL, search_docs
+from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.ticket_tools import (
     CREATE_TICKET_TOOL,
     READ_TICKET_TOOL,
@@ -19,12 +19,12 @@ __all__ = [
     "EMAIL_TOOL_SCHEMAS",
     "READ_EMAIL_TOOL",
     "READ_TICKET_TOOL",
-    "SEARCH_DOCS_TOOL",
+    "SEARCH_POLICIES_TOOL",
     "SEND_EMAIL_TOOL",
     "TICKET_TOOL_SCHEMAS",
     "create_ticket",
     "read_email",
     "read_ticket",
-    "search_docs",
+    "search_policies",
     "send_email",
 ]

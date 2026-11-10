@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 from app.config import EMAILS_PATH, EMAIL_SINK_PATH
@@ -72,34 +71,30 @@ SEND_EMAIL_TOOL: dict[str, Any] = {
 EMAIL_TOOL_SCHEMAS: list[dict[str, Any]] = [READ_EMAIL_TOOL, SEND_EMAIL_TOOL]
 
 
-def _load_emails(path: Path = EMAILS_PATH) -> list[dict[str, Any]]:
-    if not path.exists():
-        logger.warning("Emails file missing: %s", path)
-        return []
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _format_email(email: dict[str, Any]) -> str:
-    return (
-        f"id: {email.get('id')}\n"
-        f"from: {email.get('from')}\n"
-        f"to: {email.get('to')}\n"
-        f"subject: {email.get('subject')}\n"
-        f"body:\n{email.get('body', '')}"
-    )
-
-
 def read_email(email_id: str | None = None, query: str | None = None) -> str:
     """Read synthetic emails. Untrusted content is returned raw (vulnerable baseline)."""
-    emails = _load_emails()
+    if not EMAILS_PATH.exists():
+        logger.warning("Emails file missing: %s", EMAILS_PATH)
+        return "No emails available."
+
+    emails: list[dict[str, Any]] = json.loads(EMAILS_PATH.read_text(encoding="utf-8"))
     if not emails:
         return "No emails available."
+
+    def render(email: dict[str, Any]) -> str:
+        return (
+            f"id: {email.get('id')}\n"
+            f"from: {email.get('from')}\n"
+            f"to: {email.get('to')}\n"
+            f"subject: {email.get('subject')}\n"
+            f"body:\n{email.get('body', '')}"
+        )
 
     if email_id:
         for email in emails:
             if email.get("id") == email_id:
                 logger.info("read_email id=%s", email_id)
-                return _format_email(email)
+                return render(email)
         logger.info("read_email id=%s not found", email_id)
         return f"Email not found: {email_id}"
 
@@ -115,14 +110,12 @@ def read_email(email_id: str | None = None, query: str | None = None) -> str:
                     str(email.get("body", "")),
                 ]
             ).lower()
-            if tokens and all(token in haystack for token in tokens):
-                matches.append(email)
-            elif not tokens:
+            if not tokens or all(token in haystack for token in tokens):
                 matches.append(email)
         logger.info("read_email query=%r matches=%s", query, len(matches))
         if not matches:
             return f"No emails matched query={query!r}."
-        return "\n\n---\n\n".join(_format_email(email) for email in matches)
+        return "\n\n---\n\n".join(render(email) for email in matches)
 
     logger.info("read_email list_all count=%s", len(emails))
     summaries = [

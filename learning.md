@@ -238,3 +238,25 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Concepts worth remembering
 - Portfolio narrative: *business need → dangerous agent → attacks that work → layered defenses → measured trade-offs*.
 - Multiple problems beat a single “add a guardrail” story: threat model, oracles, detection limits, isolation, write-tool policy, ablation.
+
+---
+
+## 2026-11-10 — BankOps policies + `search_policies`
+
+### What we built
+- Replaced OpsPilot IT docs with ~9 synthetic banking SOPs (refund, dispute, KYC, transfer, payee, holds, fraud, privacy/canary, chargeback).
+- Replaced `search_docs` with `search_policies`: keyword overlap → score → top-5 ranked policy text.
+- Kept tool modules flat (one main function per tool) so the lab stays easy to read.
+
+### Concepts worth remembering
+- **Keyword RAG is still RAG:** retrieved policy text re-enters the model context and is an **indirect injection** surface — even when the “corpus” is trusted-looking SOPs.
+- Overlap score = shared tokens (+ light title/filename boost). Easy to debug and to poison in evals; weak on paraphrase vs embeddings.
+- Tool APIs that return a **formatted string** (not a hit list + formatter) match how the agent actually consumes tool output.
+
+### Interview angle
+> Why skip a vector DB in this lab?
+> Because the security lesson is about *what happens after retrieval*, not retrieval quality. Keyword top-k is inspectable, deterministic enough for oracles, and still lets you plant poisoned docs.
+
+### Pitfalls / limitations
+- Attack dataset still mostly OpsPilot-shaped (email/ticket); banking write tools + dispute oracles come next.
+- Keyword search can miss synonyms (“chargeback” vs “refund”) or over-rank docs that share common ops words.

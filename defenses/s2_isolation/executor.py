@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from app.tools.email_tool import read_email, send_email
-from app.tools.search_docs import format_hits, search_docs
+from app.tools.search_policies import search_policies
 from app.tools.ticket_tools import create_ticket, read_ticket
 from defenses.s2_isolation.schema import ALLOWED_TOOLS, AgentPlan, PlanStep, is_variable_ref
 
@@ -46,8 +46,8 @@ def _optional_str(value: Any) -> str | None:
 
 def _dispatch_tool(name: str, arguments: dict[str, Any]) -> str:
     """Call one known tool. Same surface as the baseline agent."""
-    if name == "search_docs":
-        return format_hits(search_docs(str(arguments.get("query", "")).strip()))
+    if name == "search_policies":
+        return search_policies(str(arguments.get("query", "")).strip())
 
     if name == "read_email":
         return read_email(email_id=_optional_str(arguments.get("email_id")), query=_optional_str(arguments.get("query")))

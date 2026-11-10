@@ -33,7 +33,7 @@ export const STAGE_META: Record<
     label: 'Retrieved context',
     enabled: true,
     description:
-      'Scores search_docs, read_email, and read_ticket text before it enters context. A drop withholds poisoned text.',
+      'Scores search_policies, read_email, and read_ticket text before it enters context. A drop withholds poisoned text.',
   },
   tool_output: {
     label: 'Tool output',
