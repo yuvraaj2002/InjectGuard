@@ -11,7 +11,7 @@ from defenses.s1_detection.decision_model_inference import DecisionModel
 
 logger = logging.getLogger(__name__)
 RETRIEVAL_TOOLS = frozenset(
-    {"search_policies", "read_dispute", "get_account", "list_payees", "read_email", "read_ticket"}
+    {"search_policies", "read_dispute", "get_account", "list_payees"}
 )
 GuardAction = Literal["allow", "block", "drop", "flag"]
 

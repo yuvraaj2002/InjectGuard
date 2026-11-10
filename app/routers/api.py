@@ -38,13 +38,13 @@ def _guard_layers() -> list[GuardLayerInfo]:
             id="retrieved_context",
             label="Retrieved context",
             enabled=GUARD_RETRIEVED_CONTEXT,
-            description="Scores search_policies / read_dispute / get_account / list_payees / read_email / read_ticket text before it enters context.",
+            description="Scores search_policies / read_dispute / get_account / list_payees text before it enters context.",
         ),
         GuardLayerInfo(
             id="tool_output",
             label="Tool output",
             enabled=GUARD_TOOL_OUTPUT,
-            description="Scores other tool results (e.g. write-tool confirmations) before re-entry.",
+            description="Scores other tool results (e.g. transfer_funds / issue_refund confirmations) before re-entry.",
         ),
     ]
 

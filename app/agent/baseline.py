@@ -10,12 +10,12 @@ from rich import print
 
 from app.agent.prompt import SYSTEM_PROMPT
 from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
-from app.tools.email_tool import EMAIL_TOOL_SCHEMAS, read_email, send_email
 from app.tools.get_account import GET_ACCOUNT_TOOL, get_account
+from app.tools.issue_refund import ISSUE_REFUND_TOOL, issue_refund
 from app.tools.list_payees import LIST_PAYEES_TOOL, list_payees
 from app.tools.read_dispute import READ_DISPUTE_TOOL, read_dispute
 from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
-from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS, create_ticket, read_ticket
+from app.tools.transfer_funds import TRANSFER_FUNDS_TOOL, transfer_funds
 from defenses.s1_detection.guard import ContentGuard, GuardEvent
 
 logger = logging.getLogger(__name__)
@@ -69,8 +69,8 @@ class BaselineAgent:
             READ_DISPUTE_TOOL,
             GET_ACCOUNT_TOOL,
             LIST_PAYEES_TOOL,
-            *EMAIL_TOOL_SCHEMAS,
-            *TICKET_TOOL_SCHEMAS,
+            TRANSFER_FUNDS_TOOL,
+            ISSUE_REFUND_TOOL,
         ]
         self._client = ollama.Client(host=host)
         self._guard = content_guard or ContentGuard()
@@ -132,37 +132,43 @@ class BaselineAgent:
             logger.info("Running tool list_payees account_id=%r", account_id)
             return list_payees(account_id)
 
-        if name == "read_email":
-            email_id = _optional_str(arguments.get("email_id"))
-            query = _optional_str(arguments.get("query"))
-            logger.info("Running tool read_email email_id=%r query=%r", email_id, query)
-            return read_email(email_id=email_id, query=query)
+        if name == "transfer_funds":
+            from_account = str(arguments.get("from_account", "")).strip()
+            to_account = str(arguments.get("to_account", "")).strip()
+            amount = arguments.get("amount", "")
+            currency = str(arguments.get("currency", "INR")).strip() or "INR"
+            memo = _optional_str(arguments.get("memo"))
+            logger.info(
+                "Running tool transfer_funds from=%r to=%r amount=%r",
+                from_account,
+                to_account,
+                amount,
+            )
+            return transfer_funds(
+                from_account=from_account,
+                to_account=to_account,
+                amount=amount,
+                currency=currency,
+                memo=memo,
+            )
 
-        if name == "send_email":
-            to = str(arguments.get("to", "")).strip()
-            subject = str(arguments.get("subject", "")).strip()
-            body = str(arguments.get("body", "")).strip()
-            logger.info("Running tool send_email to=%r subject=%r", to, subject)
-            if not to or not subject or not body:
-                return "send_email requires to, subject, and body."
-            return send_email(to=to, subject=subject, body=body)
-
-        if name == "read_ticket":
-            ticket_id = _optional_str(arguments.get("ticket_id"))
-            query = _optional_str(arguments.get("query"))
-            logger.info("Running tool read_ticket ticket_id=%r query=%r", ticket_id, query)
-            return read_ticket(ticket_id=ticket_id, query=query)
-
-        if name == "create_ticket":
-            title = str(arguments.get("title", "")).strip()
-            project = str(arguments.get("project", "")).strip()
-            severity = str(arguments.get("severity", "")).strip()
-            summary = str(arguments.get("summary", "")).strip()
-            assignee = _optional_str(arguments.get("assignee"))
-            logger.info("Running tool create_ticket title=%r project=%r severity=%r", title, project, severity)
-            if not title or not project or not severity or not summary:
-                return "create_ticket requires title, project, severity, and summary."
-            return create_ticket(title=title, project=project, severity=severity, summary=summary, assignee=assignee)
+        if name == "issue_refund":
+            dispute_id = str(arguments.get("dispute_id", "")).strip()
+            to_account = str(arguments.get("to_account", "")).strip()
+            amount = arguments.get("amount", "")
+            reason = _optional_str(arguments.get("reason"))
+            logger.info(
+                "Running tool issue_refund dispute=%r to=%r amount=%r",
+                dispute_id,
+                to_account,
+                amount,
+            )
+            return issue_refund(
+                dispute_id=dispute_id,
+                to_account=to_account,
+                amount=amount,
+                reason=reason,
+            )
 
         logger.warning("Unknown tool requested: %s", name)
         return f"Unknown tool: {name}"

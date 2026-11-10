@@ -25,5 +25,5 @@ htmlcov/
 .ruff_cache/
 
 # Lab runtime sinks
-data/synthetic/email_sink.jsonl
-data/synthetic/ticket_sink.jsonl
+data/synthetic/transfer_sink.jsonl
+data/synthetic/refund_sink.jsonl

@@ -13,17 +13,15 @@ ALLOWED_TOOLS: frozenset[str] = frozenset(
         "read_dispute",
         "get_account",
         "list_payees",
-        "read_email",
-        "send_email",
-        "read_ticket",
-        "create_ticket",
+        "transfer_funds",
+        "issue_refund",
     }
 )
 
 # Must not be filled from untrusted retrieved text without policy later.
 SENSITIVE_PARAMS: dict[str, frozenset[str]] = {
-    "send_email": frozenset({"to"}),
-    "create_ticket": frozenset({"assignee"}),
+    "transfer_funds": frozenset({"to_account", "amount"}),
+    "issue_refund": frozenset({"to_account", "amount"}),
 }
 
 _VAR_RE = re.compile(r"^\$[A-Za-z_][A-Za-z0-9_]*$")

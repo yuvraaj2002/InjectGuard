@@ -365,9 +365,10 @@ InjectGuard/
 │   ├── s1_detection/      # decision model + ContentGuard
 │   ├── s2_isolation/      # planner, quarantine, executor (+ taint later)
 │   └── s3_actions/        # policy, HITL, filters (upcoming)
-├── data/synthetic/        # SOPs, emails, tickets, accounts (fake)
-├── attacks/               # dataset + oracles
-├── eval/                  # runner, metrics
+├── data/
+│   ├── synthetic/         # SOPs, disputes, accounts, payees
+│   └── attacks/           # dataset.yaml (benign + attack cases)
+├── eval/                  # oracles, runner, unit tests, metrics
 └── ui/                    # lab console + defense flow graph
 ```
 

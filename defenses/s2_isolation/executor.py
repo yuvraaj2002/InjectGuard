@@ -11,12 +11,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from app.config import DEFAULT_USER_ID
-from app.tools.email_tool import read_email, send_email
 from app.tools.get_account import get_account
+from app.tools.issue_refund import issue_refund
 from app.tools.list_payees import list_payees
 from app.tools.read_dispute import read_dispute
 from app.tools.search_policies import search_policies
-from app.tools.ticket_tools import create_ticket, read_ticket
+from app.tools.transfer_funds import transfer_funds
 from defenses.s2_isolation.schema import ALLOWED_TOOLS, AgentPlan, PlanStep, is_variable_ref
 
 logger = logging.getLogger(__name__)
@@ -67,29 +67,22 @@ def _dispatch_tool(name: str, arguments: dict[str, Any], *, user_id: str = DEFAU
     if name == "list_payees":
         return list_payees(str(arguments.get("account_id", "")).strip())
 
-    if name == "read_email":
-        return read_email(email_id=_optional_str(arguments.get("email_id")), query=_optional_str(arguments.get("query")))
+    if name == "transfer_funds":
+        return transfer_funds(
+            from_account=str(arguments.get("from_account", "")).strip(),
+            to_account=str(arguments.get("to_account", "")).strip(),
+            amount=arguments.get("amount", ""),
+            currency=str(arguments.get("currency", "INR")).strip() or "INR",
+            memo=_optional_str(arguments.get("memo")),
+        )
 
-    if name == "send_email":
-        to = str(arguments.get("to", "")).strip()
-        subject = str(arguments.get("subject", "")).strip()
-        body = str(arguments.get("body", "")).strip()
-        if not to or not subject or not body:
-            return "send_email requires to, subject, and body."
-        return send_email(to=to, subject=subject, body=body)
-
-    if name == "read_ticket":
-        return read_ticket(ticket_id=_optional_str(arguments.get("ticket_id")), query=_optional_str(arguments.get("query")))
-
-    if name == "create_ticket":
-        title = str(arguments.get("title", "")).strip()
-        project = str(arguments.get("project", "")).strip()
-        severity = str(arguments.get("severity", "")).strip()
-        summary = str(arguments.get("summary", "")).strip()
-        assignee = _optional_str(arguments.get("assignee"))
-        if not title or not project or not severity or not summary:
-            return "create_ticket requires title, project, severity, and summary."
-        return create_ticket(title=title, project=project, severity=severity, summary=summary, assignee=assignee)
+    if name == "issue_refund":
+        return issue_refund(
+            dispute_id=str(arguments.get("dispute_id", "")).strip(),
+            to_account=str(arguments.get("to_account", "")).strip(),
+            amount=arguments.get("amount", ""),
+            reason=_optional_str(arguments.get("reason")),
+        )
 
     return f"Unknown tool: {name}"
 

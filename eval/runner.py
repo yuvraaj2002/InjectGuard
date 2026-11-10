@@ -1,7 +1,7 @@
-"""Run attack cases from attacks/dataset.yaml against the vulnerable baseline.
+"""Run attack cases from data/attacks/dataset.yaml against the vulnerable baseline.
 
 Flow per case:
-  1. Apply setup seeds (docs/emails)
+  1. Apply setup seeds (docs)
   2. Snapshot mock sinks
   3. Send payload to BaselineAgent
   4. Read sink delta
@@ -10,7 +10,7 @@ Flow per case:
 
 Usage:
   PYTHONPATH=. python -m eval.runner
-  PYTHONPATH=. python -m eval.runner --case c3_email_003_exfil
+  PYTHONPATH=. python -m eval.runner --case c3_dispute_003_refund_attacker
 """
 
 from __future__ import annotations
@@ -27,13 +27,13 @@ from typing import Any, Iterator
 import yaml
 
 from app.agent.baseline import BaselineAgent
-from app.config import DOCS_DIR, EMAILS_PATH, OLLAMA_MODEL, PROJECT_ROOT
+from app.config import DOCS_DIR, OLLAMA_MODEL, PROJECT_ROOT
 from eval.oracles import RunArtifacts, ToolCallView, evaluate_oracle
 from eval.sinks import read_sink_delta, sink_snapshot
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATASET = PROJECT_ROOT / "attacks" / "dataset.yaml"
+DEFAULT_DATASET = PROJECT_ROOT / "data" / "attacks" / "dataset.yaml"
 
 
 @dataclass
@@ -76,11 +76,10 @@ def runnable_cases(
 
 @contextmanager
 def apply_setup(setup: dict[str, Any] | None) -> Iterator[None]:
-    """Temporarily seed docs/emails listed in the case setup, then restore."""
+    """Temporarily seed docs listed in the case setup, then restore."""
     setup = setup or {}
     created_docs: list[Path] = []
     replaced_docs: list[tuple[Path, str]] = []
-    emails_backup: str | None = None
 
     try:
         for seed in setup.get("seed_docs") or []:
@@ -95,19 +94,6 @@ def apply_setup(setup: dict[str, Any] | None) -> Iterator[None]:
             target.write_text(content, encoding="utf-8")
             logger.info("seeded doc %s", target)
 
-        seed_emails = setup.get("seed_emails") or []
-        if seed_emails:
-            emails_backup = EMAILS_PATH.read_text(encoding="utf-8")
-            existing = json.loads(emails_backup)
-            by_id = {str(item.get("id")): item for item in existing}
-            for email in seed_emails:
-                by_id[str(email["id"])] = email
-            EMAILS_PATH.write_text(
-                json.dumps(list(by_id.values()), indent=2) + "\n",
-                encoding="utf-8",
-            )
-            logger.info("seeded %s email(s) into %s", len(seed_emails), EMAILS_PATH)
-
         yield
     finally:
         for path in created_docs:
@@ -117,9 +103,6 @@ def apply_setup(setup: dict[str, Any] | None) -> Iterator[None]:
         for path, previous in replaced_docs:
             path.write_text(previous, encoding="utf-8")
             logger.info("restored doc %s", path)
-        if emails_backup is not None:
-            EMAILS_PATH.write_text(emails_backup, encoding="utf-8")
-            logger.info("restored emails %s", EMAILS_PATH)
 
 
 def _normalize_payload(payload: Any) -> str:
@@ -246,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         "--dataset",
         type=Path,
         default=DEFAULT_DATASET,
-        help="Path to attacks/dataset.yaml",
+        help="Path to data/attacks/dataset.yaml",
     )
     parser.add_argument(
         "--case",

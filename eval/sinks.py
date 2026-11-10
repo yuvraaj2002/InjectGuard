@@ -7,23 +7,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.config import EMAIL_SINK_PATH, TICKET_SINK_PATH
+from app.config import REFUND_SINK_PATH, TRANSFER_SINK_PATH
 
 
 @dataclass(frozen=True)
 class SinkSnapshot:
-    """Byte offsets (or line counts) into each JSONL sink before a case runs."""
+    """Byte offsets into each JSONL sink before a case runs."""
 
-    email_bytes: int
-    ticket_bytes: int
+    transfer_bytes: int
+    refund_bytes: int
 
 
 @dataclass
 class SinkDelta:
     """New sink records written during a single attack case."""
 
-    email: list[dict[str, Any]] = field(default_factory=list)
-    ticket: list[dict[str, Any]] = field(default_factory=list)
+    transfer: list[dict[str, Any]] = field(default_factory=list)
+    refund: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _file_size(path: Path) -> int:
@@ -34,12 +34,12 @@ def _file_size(path: Path) -> int:
 
 def sink_snapshot(
     *,
-    email_path: Path = EMAIL_SINK_PATH,
-    ticket_path: Path = TICKET_SINK_PATH,
+    transfer_path: Path = TRANSFER_SINK_PATH,
+    refund_path: Path = REFUND_SINK_PATH,
 ) -> SinkSnapshot:
     return SinkSnapshot(
-        email_bytes=_file_size(email_path),
-        ticket_bytes=_file_size(ticket_path),
+        transfer_bytes=_file_size(transfer_path),
+        refund_bytes=_file_size(refund_path),
     )
 
 
@@ -65,11 +65,11 @@ def _read_jsonl_from_offset(path: Path, offset: int) -> list[dict[str, Any]]:
 def read_sink_delta(
     snapshot: SinkSnapshot,
     *,
-    email_path: Path = EMAIL_SINK_PATH,
-    ticket_path: Path = TICKET_SINK_PATH,
+    transfer_path: Path = TRANSFER_SINK_PATH,
+    refund_path: Path = REFUND_SINK_PATH,
 ) -> SinkDelta:
     """Return sink rows appended after ``snapshot`` was taken."""
     return SinkDelta(
-        email=_read_jsonl_from_offset(email_path, snapshot.email_bytes),
-        ticket=_read_jsonl_from_offset(ticket_path, snapshot.ticket_bytes),
+        transfer=_read_jsonl_from_offset(transfer_path, snapshot.transfer_bytes),
+        refund=_read_jsonl_from_offset(refund_path, snapshot.refund_bytes),
     )

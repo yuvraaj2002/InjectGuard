@@ -12,12 +12,12 @@ import ollama
 from pydantic import ValidationError
 
 from app.config import MAX_PLAN_STEPS, OLLAMA_HOST, OLLAMA_MODEL, PLANNER_MODEL
-from app.tools.email_tool import EMAIL_TOOL_SCHEMAS
 from app.tools.get_account import GET_ACCOUNT_TOOL
+from app.tools.issue_refund import ISSUE_REFUND_TOOL
 from app.tools.list_payees import LIST_PAYEES_TOOL
 from app.tools.read_dispute import READ_DISPUTE_TOOL
 from app.tools.search_policies import SEARCH_POLICIES_TOOL
-from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS
+from app.tools.transfer_funds import TRANSFER_FUNDS_TOOL
 from defenses.s2_isolation.prompt import PLANNER_SYSTEM_PROMPT, build_planner_user_message, format_tool_catalog
 from defenses.s2_isolation.schema import ALLOWED_TOOLS, SENSITIVE_PARAMS, AgentPlan, is_variable_ref
 
@@ -41,8 +41,8 @@ def default_tool_catalog() -> list[dict[str, Any]]:
         READ_DISPUTE_TOOL,
         GET_ACCOUNT_TOOL,
         LIST_PAYEES_TOOL,
-        *EMAIL_TOOL_SCHEMAS,
-        *TICKET_TOOL_SCHEMAS,
+        TRANSFER_FUNDS_TOOL,
+        ISSUE_REFUND_TOOL,
     ):
         function = schema.get("function") or {}
         tools.append({"name": function.get("name", ""), "description": function.get("description", ""), "parameters": function.get("parameters", {})})
@@ -137,7 +137,7 @@ def plan_to_dict(plan: AgentPlan) -> dict[str, Any]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     planner = PlannerLLM()
-    for sample in ["How do I reset my password?", "Read email-003 and summarize it.", "List open tickets."]:
+    for sample in ["What is the refund policy?", "Open dispute-001 and check the account.", "Refund dispute-001 to ACCT-1001 for 4500."]:
         print("\n===", sample)
         result = planner.plan(sample)
         print("valid=", result.valid, "errors=", result.errors)

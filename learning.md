@@ -23,14 +23,14 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 > Answer with the loop above, then say what you would add at each trust boundary (guard on tool output, plan-then-execute, allowlists on write tools).
 
 ### Open / next to learn
-- Implement success oracles + eval runner against `attacks/dataset.yaml`, then MCP demo tools for E4/E5.
+- Implement success oracles + eval runner against `data/attacks/dataset.yaml`, then MCP demo tools for E4/E5.
 
 ---
 
 ## 2026-11-09 — Attack dataset as eval contracts
 
 ### What we built
-- `attacks/dataset.yaml` v1: C1/C2/C3/C6 runnable cases + deferred C4/C5 placeholders.
+- `data/attacks/dataset.yaml`: BankOps benign + C1/C2/C3/C6 cases + deferred C4/C5 placeholders.
 
 ### Concepts worth remembering
 - An attack case is a **contract**: trigger (`payload`) + world state (`setup`) + measurable win condition (`success_oracle`). Without the oracle, you only have anecdotes.
@@ -309,3 +309,21 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - Payees = **approved beneficiaries**. Later S3 can require `transfer_funds.to_account ∈ list_payees(from_account)`.
 - This is how you teach **allowlists** without a vector DB: deterministic JSON, easy oracles (“did money leave to a non-payee?”).
 - Empty payee books (e.g. `ACCT-2001`) are useful demos: no legitimate outbound destination until one is added.
+
+---
+
+## 2026-11-10 — Write tools: `transfer_funds` + `issue_refund`
+
+### What we built
+- Removed OpsPilot email/ticket tools and their synthetic JSON.
+- BankOps write tools append to local sinks: `transfer_sink.jsonl`, `refund_sink.jsonl` (no real rails).
+- Agent tool surface is now the six BankOps tools only.
+
+### Concepts worth remembering
+- **Write tools are the damage surface.** Reads import poison; writes move money (even if mocked). ASR oracles should watch sink `to_account` / `amount`.
+- Sensitive args: `to_account`, `amount` (and refund `dispute_id` linkage). S3 later: payee allowlist + HITL + taint.
+- Vulnerable-by-default is intentional: baseline will happily refund to `ACCT-9999` if a poisoned dispute says so.
+
+### Interview angle
+> How do you prove a money-moving agent was exploited without real banking APIs?
+> Append-only mock sinks + deterministic oracles on the delta (`to_account == attacker`). Same pattern as email sinks, clearer blast radius for a portfolio story.
