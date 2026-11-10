@@ -12,6 +12,7 @@ ALLOWED_TOOLS: frozenset[str] = frozenset(
         "search_policies",
         "read_dispute",
         "get_account",
+        "list_payees",
         "read_email",
         "send_email",
         "read_ticket",

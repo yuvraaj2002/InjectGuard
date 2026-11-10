@@ -13,6 +13,7 @@ from typing import Any, Callable
 from app.config import DEFAULT_USER_ID
 from app.tools.email_tool import read_email, send_email
 from app.tools.get_account import get_account
+from app.tools.list_payees import list_payees
 from app.tools.read_dispute import read_dispute
 from app.tools.search_policies import search_policies
 from app.tools.ticket_tools import create_ticket, read_ticket
@@ -62,6 +63,9 @@ def _dispatch_tool(name: str, arguments: dict[str, Any], *, user_id: str = DEFAU
 
     if name == "get_account":
         return get_account(str(arguments.get("account_id", "")).strip())
+
+    if name == "list_payees":
+        return list_payees(str(arguments.get("account_id", "")).strip())
 
     if name == "read_email":
         return read_email(email_id=_optional_str(arguments.get("email_id")), query=_optional_str(arguments.get("query")))

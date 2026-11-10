@@ -296,3 +296,16 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - **Tool chaining** is how ops agents work: dispute → account_id → balance/status → (later) refund/transfer.
 - Structured fields vs body text is a trust lesson: poisoned body may say `ACCT-9999`, while the case’s real `account_id` is still `ACCT-1001`. Prefer structured ids until S3 taint/HITL exists.
 - Open `get_account` by id is over-privileged on purpose for now; ACL can come later (book-of-business or dispute-linked only).
+
+---
+
+## 2026-11-10 — `list_payees` as transfer allowlist seed
+
+### What we built
+- `payees.json`: account_id → list of `{payee_id, name, account_number, bank_name}`.
+- `list_payees(account_id)` read tool; attacker destinations (`ACCT-9999`) are intentionally not saved payees.
+
+### Concepts worth remembering
+- Payees = **approved beneficiaries**. Later S3 can require `transfer_funds.to_account ∈ list_payees(from_account)`.
+- This is how you teach **allowlists** without a vector DB: deterministic JSON, easy oracles (“did money leave to a non-payee?”).
+- Empty payee books (e.g. `ACCT-2001`) are useful demos: no legitimate outbound destination until one is added.

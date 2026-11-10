@@ -5,6 +5,7 @@ DOCS_DIR = PROJECT_ROOT / "data" / "synthetic" / "docs"
 POLICY_ACCESS_PATH = PROJECT_ROOT / "data" / "synthetic" / "policy_access.json"
 DISPUTES_PATH = PROJECT_ROOT / "data" / "synthetic" / "disputes" / "disputes.json"
 ACCOUNTS_PATH = PROJECT_ROOT / "data" / "synthetic" / "accounts" / "accounts.json"
+PAYEES_PATH = PROJECT_ROOT / "data" / "synthetic" / "payees" / "payees.json"
 EMAILS_PATH = PROJECT_ROOT / "data" / "synthetic" / "emails" / "emails.json"
 EMAIL_SINK_PATH = PROJECT_ROOT / "data" / "synthetic" / "email_sink.jsonl"
 TICKETS_PATH = PROJECT_ROOT / "data" / "synthetic" / "tickets" / "tickets.json"
@@ -24,7 +25,7 @@ INJECTION_THRESHOLD = 0.45
 
 # S1 toggles — score before text enters the agent context
 GUARD_INPUT = True
-GUARD_RETRIEVED_CONTEXT = True  # search_policies / read_dispute / get_account / read_email / read_ticket outputs
+GUARD_RETRIEVED_CONTEXT = True  # search_policies / read_dispute / get_account / list_payees / read_email / read_ticket outputs
 GUARD_TOOL_OUTPUT = True  # other tool outputs (e.g. send_email / create_ticket)
 # When retrieved/tool content is flagged: "drop" (replace) or "flag" (log only)
 GUARD_CONTENT_ACTION = "drop"

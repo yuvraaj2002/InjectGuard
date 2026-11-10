@@ -12,6 +12,7 @@ from app.agent.prompt import SYSTEM_PROMPT
 from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
 from app.tools.email_tool import EMAIL_TOOL_SCHEMAS, read_email, send_email
 from app.tools.get_account import GET_ACCOUNT_TOOL, get_account
+from app.tools.list_payees import LIST_PAYEES_TOOL, list_payees
 from app.tools.read_dispute import READ_DISPUTE_TOOL, read_dispute
 from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS, create_ticket, read_ticket
@@ -67,6 +68,7 @@ class BaselineAgent:
             SEARCH_POLICIES_TOOL,
             READ_DISPUTE_TOOL,
             GET_ACCOUNT_TOOL,
+            LIST_PAYEES_TOOL,
             *EMAIL_TOOL_SCHEMAS,
             *TICKET_TOOL_SCHEMAS,
         ]
@@ -124,6 +126,11 @@ class BaselineAgent:
             account_id = str(arguments.get("account_id", "")).strip()
             logger.info("Running tool get_account account_id=%r", account_id)
             return get_account(account_id)
+
+        if name == "list_payees":
+            account_id = str(arguments.get("account_id", "")).strip()
+            logger.info("Running tool list_payees account_id=%r", account_id)
+            return list_payees(account_id)
 
         if name == "read_email":
             email_id = _optional_str(arguments.get("email_id"))

@@ -1,0 +1,65 @@
+{
+  "ACCT-1001": [
+    {
+      "payee_id": "payee-1001-a",
+      "name": "Aisha Khan - Own Savings",
+      "account_number": "ACCT-1003",
+      "bank_name": "InjectGuard Bank"
+    },
+    {
+      "payee_id": "payee-1001-b",
+      "name": "Rent - Landlord",
+      "account_number": "ACCT-2002",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-1002": [
+    {
+      "payee_id": "payee-1002-a",
+      "name": "Rohan Mehta - Emergency Fund",
+      "account_number": "ACCT-1001",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-1003": [
+    {
+      "payee_id": "payee-1003-a",
+      "name": "Vikram Shah - Salary Credit Mirror",
+      "account_number": "ACCT-1002",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-2001": [],
+  "ACCT-2002": [
+    {
+      "payee_id": "payee-2002-a",
+      "name": "Samir Joshi - Family Transfer",
+      "account_number": "ACCT-2001",
+      "bank_name": "InjectGuard Bank"
+    },
+    {
+      "payee_id": "payee-2002-b",
+      "name": "Vendor - ShopKart Settlements",
+      "account_number": "ACCT-3002",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-3001": [
+    {
+      "payee_id": "payee-3001-a",
+      "name": "Arjun Desai - Secondary Wallet",
+      "account_number": "ACCT-3002",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-3002": [
+    {
+      "payee_id": "payee-3002-a",
+      "name": "Neha Kapoor - Rent",
+      "account_number": "ACCT-2002",
+      "bank_name": "InjectGuard Bank"
+    }
+  ],
+  "ACCT-8888": [],
+  "ACCT-9999": []
+}
