@@ -85,7 +85,7 @@ function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
           >
-            OpsPilot · S1 decision model online
+            OpsPilot · S1 detect · S2 isolate
           </motion.p>
           <motion.h1
             className="brand"
@@ -101,8 +101,8 @@ function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.1 }}
           >
-            Watch the agent run — and see where the decision model inspects user
-            input, retrieved context, and tool outputs.
+            Watch S1 detect injection and S2 pin a planner-owned control-flow
+            plan before untrusted content is read.
           </motion.p>
         </div>
 
@@ -126,12 +126,6 @@ function App() {
           </span>
         </motion.div>
       </header>
-
-      <DefenseLayersPanel
-        guardLayers={guardLayers}
-        decisionModel={decisionModel}
-        events={result?.guard_events ?? []}
-      />
 
       <div className="workspace">
         <aside className="panel tools-pane">
@@ -230,7 +224,7 @@ function App() {
               ) : (
                 <p className="empty">
                   Send a query to see the final answer. Guard activity updates
-                  in the flow graph above.
+                  in the flow graph below.
                 </p>
               )}
             </section>
@@ -301,6 +295,12 @@ function App() {
           </div>
         </div>
       </div>
+
+      <DefenseLayersPanel
+        guardLayers={guardLayers}
+        decisionModel={decisionModel}
+        events={result?.guard_events ?? []}
+      />
     </div>
   )
 }

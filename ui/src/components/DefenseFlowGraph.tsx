@@ -1,33 +1,89 @@
 import type { GuardEventTrace, GuardLayerInfo } from '../api'
 
-export type LayerId = 'user_input' | 'retrieved_context' | 'tool_output'
-export type LayerStatus = 'idle' | 'allow' | 'block' | 'drop' | 'flag'
+export type S1LayerId = 'user_input' | 'retrieved_context' | 'tool_output'
+export type S2StageId = 'planner' | 'pinned_plan'
+export type StageId = S1LayerId | S2StageId
 
-export const LAYER_ORDER: LayerId[] = ['user_input', 'retrieved_context', 'tool_output']
+export type LayerId = StageId
+export type LayerStatus = 'idle' | 'allow' | 'block' | 'drop' | 'flag' | 'planned'
 
-export const LAYER_ROLE: Record<LayerId, string> = {
-  user_input: 'Gate',
-  retrieved_context: 'Filter',
-  tool_output: 'Filter',
+export const S1_LAYER_ORDER: S1LayerId[] = ['user_input', 'retrieved_context', 'tool_output']
+export const S2_STAGE_ORDER: S2StageId[] = ['planner', 'pinned_plan']
+export const LAYER_ORDER: StageId[] = [...S1_LAYER_ORDER, ...S2_STAGE_ORDER]
+
+export const LAYER_ROLE: Record<StageId, string> = {
+  user_input: 'S1 gate',
+  retrieved_context: 'S1 filter',
+  tool_output: 'S1 filter',
+  planner: 'S2 plan',
+  pinned_plan: 'S2 pin',
 }
 
-export function layerStatus(layer: LayerId, events: GuardEventTrace[]): LayerStatus {
+export const STAGE_META: Record<
+  StageId,
+  { label: string; description: string; enabled: boolean }
+> = {
+  user_input: {
+    label: 'User input',
+    enabled: true,
+    description:
+      'Decision model scores the user message before anything else runs. A block refuses the request.',
+  },
+  retrieved_context: {
+    label: 'Retrieved context',
+    enabled: true,
+    description:
+      'Scores search_docs, read_email, and read_ticket text before it enters context. A drop withholds poisoned text.',
+  },
+  tool_output: {
+    label: 'Tool output',
+    enabled: true,
+    description: 'Scores other tool results before they re-enter the loop. The gate can drop or flag.',
+  },
+  planner: {
+    label: 'Planner LLM',
+    enabled: true,
+    description:
+      'Privileged P-LLM sees the user goal and tool schemas only — no emails, docs, or tickets yet. It writes the control-flow plan before untrusted content is read.',
+  },
+  pinned_plan: {
+    label: 'Pinned plan',
+    enabled: true,
+    description:
+      'Validated JSON steps (tool + args with $variables). Control flow is fixed here so later retrieved text cannot invent new tool calls or rewrite the sequence.',
+  },
+}
+
+export function layerStatus(layer: S1LayerId, events: GuardEventTrace[]): LayerStatus {
   const hit = [...events].reverse().find((event) => event.layer === layer)
   return hit?.action ?? 'idle'
 }
 
-function isLayerId(id: string): id is LayerId {
-  return id === 'user_input' || id === 'retrieved_context' || id === 'tool_output'
+export function stageStatus(stage: StageId, events: GuardEventTrace[]): LayerStatus {
+  if (stage === 'planner' || stage === 'pinned_plan') {
+    return layerStatus('user_input', events) === 'allow' ? 'planned' : 'idle'
+  }
+  return layerStatus(stage, events)
 }
 
-type NodeKind = 'input' | 'decision' | 'block' | 'continue' | 'layer' | 'reply'
+function isStageId(id: string): id is StageId {
+  return (
+    id === 'user_input' ||
+    id === 'retrieved_context' ||
+    id === 'tool_output' ||
+    id === 'planner' ||
+    id === 'pinned_plan'
+  )
+}
+
+type NodeKind = 'input' | 'decision' | 'block' | 'planner' | 'plan' | 'layer' | 'reply'
 
 type GraphNode = {
   id: string
   label: string
   sub?: string
   kind: NodeKind
-  layer?: LayerId
+  stage?: StageId
   x: number
   y: number
   w: number
@@ -39,31 +95,72 @@ type GraphEdge = {
   from: string
   to: string
   label?: string
-  tone?: 'yes' | 'no' | 'neutral'
+  tone?: 'yes' | 'no' | 'neutral' | 's2'
 }
 
+type Band = {
+  id: string
+  label: string
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+const CX = 250
+const NW = 200
+const BRANCH_X = 500
+
+const BANDS: Band[] = [
+  { id: 'band-s1a', label: 'S1 · detect', x: 24, y: 16, w: 672, h: 220 },
+  { id: 'band-s2', label: 'S2 · isolate', x: 24, y: 248, w: 672, h: 300 },
+  { id: 'band-s1b', label: 'S1 · filter content', x: 24, y: 560, w: 672, h: 500 },
+]
+
 const NODES: GraphNode[] = [
-  { id: 'user', label: 'User input', sub: 'request text', kind: 'input', x: 40, y: 48, w: 150, h: 56 },
+  { id: 'user', label: 'User input', sub: 'request text', kind: 'input', stage: 'user_input', x: CX, y: 44, w: NW, h: 56 },
   {
     id: 'dm1',
     label: 'Decision model',
     sub: 'injection?',
     kind: 'decision',
-    layer: 'user_input',
-    x: 250,
-    y: 40,
-    w: 170,
-    h: 72,
+    stage: 'user_input',
+    x: CX,
+    y: 132,
+    w: NW,
+    h: 68,
   },
-  { id: 'block', label: 'Blocked', sub: 'refuse request', kind: 'block', x: 500, y: 8, w: 140, h: 52 },
+  { id: 'block', label: 'Blocked', sub: 'refuse request', kind: 'block', x: BRANCH_X, y: 140, w: 150, h: 52 },
   {
-    id: 'agent',
-    label: 'Agent loop',
-    sub: 'tools + model',
-    kind: 'continue',
-    x: 500,
-    y: 96,
-    w: 140,
+    id: 'planner',
+    label: 'Planner LLM',
+    sub: 'schemas only · no tools',
+    kind: 'planner',
+    stage: 'planner',
+    x: CX,
+    y: 280,
+    w: NW,
+    h: 68,
+  },
+  {
+    id: 'plan',
+    label: 'Pinned plan',
+    sub: 'fixed steps · $vars',
+    kind: 'plan',
+    stage: 'pinned_plan',
+    x: CX,
+    y: 380,
+    w: NW,
+    h: 68,
+  },
+  {
+    id: 'exec',
+    label: 'Execute',
+    sub: 'run pinned steps',
+    kind: 'layer',
+    x: CX,
+    y: 478,
+    w: NW,
     h: 56,
   },
   {
@@ -71,10 +168,10 @@ const NODES: GraphNode[] = [
     label: 'Retrieved context',
     sub: 'docs · email · ticket',
     kind: 'layer',
-    layer: 'retrieved_context',
-    x: 700,
-    y: 48,
-    w: 168,
+    stage: 'retrieved_context',
+    x: CX,
+    y: 596,
+    w: NW,
     h: 64,
   },
   {
@@ -82,22 +179,22 @@ const NODES: GraphNode[] = [
     label: 'Decision model',
     sub: 'poisoned?',
     kind: 'decision',
-    layer: 'retrieved_context',
-    x: 920,
-    y: 40,
-    w: 170,
-    h: 72,
+    stage: 'retrieved_context',
+    x: CX,
+    y: 692,
+    w: NW,
+    h: 68,
   },
-  { id: 'drop', label: 'Drop / flag', sub: 'withhold text', kind: 'block', x: 1150, y: 8, w: 140, h: 52 },
+  { id: 'drop', label: 'Drop / flag', sub: 'withhold text', kind: 'block', x: BRANCH_X, y: 700, w: 150, h: 52 },
   {
     id: 'tools',
     label: 'Tool output',
     sub: 'write / other tools',
     kind: 'layer',
-    layer: 'tool_output',
-    x: 1150,
-    y: 96,
-    w: 140,
+    stage: 'tool_output',
+    x: CX,
+    y: 800,
+    w: NW,
     h: 56,
   },
   {
@@ -105,48 +202,72 @@ const NODES: GraphNode[] = [
     label: 'Decision model',
     sub: 'safe?',
     kind: 'decision',
-    layer: 'tool_output',
-    x: 1340,
-    y: 88,
-    w: 160,
-    h: 72,
+    stage: 'tool_output',
+    x: CX,
+    y: 888,
+    w: NW,
+    h: 68,
   },
-  { id: 'reply', label: 'Reply', sub: 'final answer', kind: 'reply', x: 1560, y: 96, w: 120, h: 56 },
+  { id: 'reply', label: 'Reply', sub: 'final answer', kind: 'reply', x: CX, y: 990, w: NW, h: 56 },
 ]
 
 const EDGES: GraphEdge[] = [
   { id: 'e1', from: 'user', to: 'dm1', tone: 'neutral' },
   { id: 'e2', from: 'dm1', to: 'block', label: 'yes', tone: 'yes' },
-  { id: 'e3', from: 'dm1', to: 'agent', label: 'no', tone: 'no' },
-  { id: 'e4', from: 'agent', to: 'ctx', tone: 'neutral' },
-  { id: 'e5', from: 'ctx', to: 'dm2', tone: 'neutral' },
-  { id: 'e6', from: 'dm2', to: 'drop', label: 'yes', tone: 'yes' },
-  { id: 'e7', from: 'dm2', to: 'tools', label: 'no', tone: 'no' },
-  { id: 'e8', from: 'tools', to: 'dm3', tone: 'neutral' },
-  { id: 'e9', from: 'dm3', to: 'reply', label: 'pass', tone: 'no' },
+  { id: 'e3', from: 'dm1', to: 'planner', label: 'no', tone: 'no' },
+  { id: 'e4', from: 'planner', to: 'plan', label: 'pins', tone: 's2' },
+  { id: 'e5', from: 'plan', to: 'exec', tone: 's2' },
+  { id: 'e6', from: 'exec', to: 'ctx', tone: 'neutral' },
+  { id: 'e7', from: 'ctx', to: 'dm2', tone: 'neutral' },
+  { id: 'e8', from: 'dm2', to: 'drop', label: 'yes', tone: 'yes' },
+  { id: 'e9', from: 'dm2', to: 'tools', label: 'no', tone: 'no' },
+  { id: 'e10', from: 'tools', to: 'dm3', tone: 'neutral' },
+  { id: 'e11', from: 'dm3', to: 'reply', label: 'pass', tone: 'no' },
 ]
 
 function nodeCenter(node: GraphNode) {
   return { x: node.x + node.w / 2, y: node.y + node.h / 2 }
 }
 
+function isSideBranch(from: GraphNode, to: GraphNode) {
+  return to.x >= from.x + from.w - 8
+}
+
 function edgePath(from: GraphNode, to: GraphNode) {
   const a = nodeCenter(from)
   const b = nodeCenter(to)
-  const startX = from.x + from.w
-  const startY = a.y
-  const endX = to.x
-  const endY = b.y
-  const midX = (startX + endX) / 2
-  return `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`
+
+  if (isSideBranch(from, to)) {
+    const startX = from.x + from.w
+    const startY = a.y
+    const endX = to.x
+    const endY = b.y
+    const midX = (startX + endX) / 2
+    return `M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`
+  }
+
+  const startX = a.x
+  const startY = from.y + from.h
+  const endX = b.x
+  const endY = to.y
+  const midY = (startY + endY) / 2
+  return `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`
 }
 
 function edgeLabelPoint(from: GraphNode, to: GraphNode) {
   const a = nodeCenter(from)
   const b = nodeCenter(to)
+
+  if (isSideBranch(from, to)) {
+    return {
+      x: (from.x + from.w + to.x) / 2,
+      y: (a.y + b.y) / 2 - 8,
+    }
+  }
+
   return {
-    x: (from.x + from.w + to.x) / 2,
-    y: (a.y + b.y) / 2 - 10,
+    x: a.x + 18,
+    y: (from.y + from.h + to.y) / 2 + 4,
   }
 }
 
@@ -158,42 +279,46 @@ export function DefenseFlowGraph({
 }: {
   guardLayers: GuardLayerInfo[]
   events: GuardEventTrace[]
-  selected: LayerId
-  onSelect: (id: LayerId) => void
+  selected: StageId
+  onSelect: (id: StageId) => void
   decisionModel: string
 }) {
-  const statuses: Record<LayerId, LayerStatus> = {
-    user_input: layerStatus('user_input', events),
-    retrieved_context: layerStatus('retrieved_context', events),
-    tool_output: layerStatus('tool_output', events),
+  const statuses: Record<StageId, LayerStatus> = {
+    user_input: stageStatus('user_input', events),
+    retrieved_context: stageStatus('retrieved_context', events),
+    tool_output: stageStatus('tool_output', events),
+    planner: stageStatus('planner', events),
+    pinned_plan: stageStatus('pinned_plan', events),
   }
 
   const activeEdgeIds = new Set<string>()
+  if (events.length > 0) activeEdgeIds.add('e1')
   if (statuses.user_input === 'block') activeEdgeIds.add('e2')
   else if (statuses.user_input === 'allow') {
     activeEdgeIds.add('e3')
     activeEdgeIds.add('e4')
+    activeEdgeIds.add('e5')
+    activeEdgeIds.add('e6')
   }
   if (statuses.retrieved_context === 'drop' || statuses.retrieved_context === 'flag') {
-    activeEdgeIds.add('e6')
-  } else if (statuses.retrieved_context === 'allow') {
-    activeEdgeIds.add('e7')
     activeEdgeIds.add('e8')
+  } else if (statuses.retrieved_context === 'allow') {
+    activeEdgeIds.add('e9')
+    activeEdgeIds.add('e10')
   }
   if (statuses.tool_output === 'allow' || statuses.tool_output === 'flag') {
-    activeEdgeIds.add('e9')
+    activeEdgeIds.add('e11')
   }
-  if (events.length > 0) activeEdgeIds.add('e1')
   if (statuses.retrieved_context !== 'idle' || statuses.tool_output !== 'idle') {
-    activeEdgeIds.add('e5')
+    activeEdgeIds.add('e7')
   }
 
   return (
-    <div className="flow-graph" aria-label="S1 defense flow graph">
+    <div className="flow-graph" aria-label="S1 and S2 defense flow graph">
       <div className="flow-graph-scroll">
-        <svg viewBox="0 0 1720 180" role="img" aria-labelledby="flow-title">
+        <svg viewBox="0 0 720 1080" role="img" aria-labelledby="flow-title">
           <title id="flow-title">
-            User input through decision model gates to agent loop and reply
+            Vertical defense flow from user input through S1, S2 planner, and content filters
           </title>
 
           <defs>
@@ -230,7 +355,27 @@ export function DefenseFlowGraph({
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b7f8a" />
             </marker>
+            <marker
+              id="arrow-s2"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3d5a80" />
+            </marker>
           </defs>
+
+          {BANDS.map((band) => (
+            <g key={band.id} className="flow-band">
+              <rect x={band.x} y={band.y} width={band.w} height={band.h} rx={16} ry={16} />
+              <text x={band.x + 18} y={band.y + 28}>
+                {band.label}
+              </text>
+            </g>
+          ))}
 
           {EDGES.map((edge) => {
             const from = NODES.find((n) => n.id === edge.from)!
@@ -242,7 +387,9 @@ export function DefenseFlowGraph({
                 ? 'url(#arrow-yes)'
                 : edge.tone === 'no'
                   ? 'url(#arrow-no)'
-                  : 'url(#arrow-neutral)'
+                  : edge.tone === 's2'
+                    ? 'url(#arrow-s2)'
+                    : 'url(#arrow-neutral)'
             return (
               <g key={edge.id} className={`flow-edge tone-${edge.tone ?? 'neutral'} ${active ? 'is-active' : ''}`}>
                 <path d={edgePath(from, to)} markerEnd={marker} />
@@ -256,9 +403,9 @@ export function DefenseFlowGraph({
           })}
 
           {NODES.map((node) => {
-            const selectable = Boolean(node.layer)
-            const status = node.layer ? statuses[node.layer] : 'idle'
-            const isSelected = node.layer === selected
+            const selectable = Boolean(node.stage)
+            const status = node.stage ? statuses[node.stage] : 'idle'
+            const isSelected = node.stage === selected
             const className = [
               'flow-node',
               `kind-${node.kind}`,
@@ -277,18 +424,18 @@ export function DefenseFlowGraph({
                 role={selectable ? 'button' : undefined}
                 tabIndex={selectable ? 0 : undefined}
                 onClick={() => {
-                  if (node.layer) onSelect(node.layer)
+                  if (node.stage) onSelect(node.stage)
                 }}
                 onKeyDown={(event) => {
-                  if (!node.layer) return
+                  if (!node.stage) return
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
-                    onSelect(node.layer)
+                    onSelect(node.stage)
                   }
                 }}
               >
                 <rect width={node.w} height={node.h} rx={12} ry={12} />
-                <text className="flow-node-label" x={node.w / 2} y={node.sub ? 24 : 34} textAnchor="middle">
+                <text className="flow-node-label" x={node.w / 2} y={node.sub ? 26 : 34} textAnchor="middle">
                   {node.label}
                 </text>
                 {node.sub ? (
@@ -296,7 +443,7 @@ export function DefenseFlowGraph({
                     {node.sub}
                   </text>
                 ) : null}
-                {node.layer && status !== 'idle' ? (
+                {node.stage && status !== 'idle' ? (
                   <text className="flow-node-status" x={node.w / 2} y={node.h - 10} textAnchor="middle">
                     {status}
                   </text>
@@ -307,13 +454,13 @@ export function DefenseFlowGraph({
         </svg>
       </div>
       <p className="flow-graph-caption">
-        {decisionModel || 'decision model'} scores text at each gate · click a decision /
-        layer node for details · yes = injection detected
+        Top → bottom: S1 ({decisionModel || 'decision model'}) detects, S2 pins the plan, then S1
+        filters retrieved content. Click a node for details.
       </p>
     </div>
   )
 }
 
-export function resolveLayerId(id: string): LayerId {
-  return isLayerId(id) ? id : 'user_input'
+export function resolveLayerId(id: string): StageId {
+  return isStageId(id) ? id : 'user_input'
 }

@@ -186,7 +186,9 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### What we built
 - `defenses/s2_isolation/`: `schema.py` (`AgentPlan` / `PlanStep`), `prompt.py`, `planner.py` (`PlannerLLM`).
 - Planner input = user request + tool schemas only → JSON plan with optional `$variables`. No tool execution.
+- UI defense graph now shows **S1 detect → S2 planner → pinned plan → execute → S1 content filters**.
 
 ### Concepts worth remembering
 - Pinning control flow means a **validated plan object**, not vibes: known tools only, step cap, parseable JSON.
 - `$email_summary`-style placeholders are slots for the future quarantined extractor / executor — not live tool results inside the planner.
+- Visual teaching order: S1 asks “is this text evil?”; S2 answers “even if poison arrives later, it cannot rewrite the plan.”

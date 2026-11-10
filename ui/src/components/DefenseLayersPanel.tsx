@@ -3,43 +3,27 @@ import { useMemo, useState } from 'react'
 import type { GuardEventTrace, GuardLayerInfo } from '../api'
 import {
   DefenseFlowGraph,
-  LAYER_ORDER,
   LAYER_ROLE,
-  layerStatus,
+  S1_LAYER_ORDER,
+  S2_STAGE_ORDER,
+  STAGE_META,
   resolveLayerId,
+  stageStatus,
 } from './DefenseFlowGraph'
-import type { LayerId, LayerStatus } from './DefenseFlowGraph'
+import type { LayerStatus, StageId } from './DefenseFlowGraph'
 
-const FALLBACK_LAYERS: GuardLayerInfo[] = [
-  {
-    id: 'user_input',
-    label: 'User input',
-    enabled: true,
-    description: 'Decision model scores the user message before the agent runs. A block refuses the request.',
-  },
-  {
-    id: 'retrieved_context',
-    label: 'Retrieved context',
-    enabled: true,
-    description:
-      'Scores search_docs, read_email, and read_ticket text before it enters context. A drop withholds poisoned text.',
-  },
-  {
-    id: 'tool_output',
-    label: 'Tool output',
-    enabled: true,
-    description: 'Scores other tool results before they re-enter the loop. The gate can drop or flag.',
-  },
-]
-
-const LAYER_INDEX: Record<LayerId, string> = {
-  user_input: '01',
-  retrieved_context: '02',
-  tool_output: '03',
+const STAGE_INDEX: Record<StageId, string> = {
+  user_input: 'S1.1',
+  retrieved_context: 'S1.2',
+  tool_output: 'S1.3',
+  planner: 'S2.1',
+  pinned_plan: 'S2.2',
 }
 
 function statusLabel(status: LayerStatus) {
-  return status === 'idle' ? 'standby' : status
+  if (status === 'idle') return 'standby'
+  if (status === 'planned') return 'in path'
+  return status
 }
 
 export function DefenseLayersPanel({
@@ -51,30 +35,43 @@ export function DefenseLayersPanel({
   decisionModel: string
   events: GuardEventTrace[]
 }) {
-  const [selected, setSelected] = useState<LayerId>('user_input')
+  const [selected, setSelected] = useState<StageId>('planner')
 
-  const layers = useMemo(() => {
-    const source = guardLayers.length > 0 ? guardLayers : FALLBACK_LAYERS
-    const byId = new Map(source.map((layer) => [layer.id, layer]))
-    return LAYER_ORDER.map((id) => byId.get(id) ?? FALLBACK_LAYERS.find((layer) => layer.id === id)!)
+  const stages = useMemo(() => {
+    const byId = new Map(guardLayers.map((layer) => [layer.id, layer]))
+    return [...S1_LAYER_ORDER, ...S2_STAGE_ORDER].map((id) => {
+      const fallback = STAGE_META[id]
+      const fromApi = byId.get(id)
+      return {
+        id,
+        label: fromApi?.label ?? fallback.label,
+        enabled: fromApi?.enabled ?? fallback.enabled,
+        description: fromApi?.description ?? fallback.description,
+      }
+    })
   }, [guardLayers])
 
-  const selectedMeta = layers.find((layer) => layer.id === selected) ?? layers[0]
+  const selectedMeta = stages.find((stage) => stage.id === selected) ?? stages[0]
   const selectedId = resolveLayerId(selectedMeta.id)
-  const selectedStatus = layerStatus(selectedId, events)
-  const selectedEvents = events.filter((event) => event.layer === selectedId)
+  const selectedStatus = stageStatus(selectedId, events)
+  const selectedEvents =
+    selectedId === 'planner' || selectedId === 'pinned_plan'
+      ? []
+      : events.filter((event) => event.layer === selectedId)
   const latest = selectedEvents[selectedEvents.length - 1]
   const recent = [...events].reverse().slice(0, 5)
+  const isS2 = selectedId === 'planner' || selectedId === 'pinned_plan'
 
   return (
-    <section className="panel defense-panel">
+    <section className="panel defense-panel defense-panel-bottom">
       <div className="panel-head">
-        <h2>S1 defense flow</h2>
-        <span>{decisionModel || 'decision model'}</span>
+        <h2>Full defense flow · S1 + S2</h2>
+        <span>{decisionModel || 'decision model'} · planner</span>
       </div>
 
+      <div className="defense-body">
       <DefenseFlowGraph
-        guardLayers={layers}
+        guardLayers={guardLayers}
         events={events}
         selected={selected}
         onSelect={setSelected}
@@ -82,23 +79,26 @@ export function DefenseLayersPanel({
       />
 
       <div className="flow-dock">
-        <div className="flow-gates" role="group" aria-label="Choke points">
-          {layers.map((layer) => {
-            const id = resolveLayerId(layer.id)
-            const status = layerStatus(id, events)
-            const hot = events.some((event) => event.layer === id && event.injection)
+        <div className="flow-gates" role="group" aria-label="Defense stages">
+          {stages.map((stage) => {
+            const id = resolveLayerId(stage.id)
+            const status = stageStatus(id, events)
+            const hot =
+              id !== 'planner' &&
+              id !== 'pinned_plan' &&
+              events.some((event) => event.layer === id && event.injection)
             return (
               <button
-                key={layer.id}
+                key={stage.id}
                 type="button"
                 aria-pressed={selected === id}
                 className={`flow-gate ${selected === id ? 'is-on' : ''} is-${status} ${hot ? 'is-hot' : ''}`}
                 onClick={() => setSelected(id)}
               >
-                <span className="flow-gate-idx">{LAYER_INDEX[id]}</span>
+                <span className="flow-gate-idx">{STAGE_INDEX[id]}</span>
                 <span className="flow-gate-copy">
-                  <strong>{layer.label}</strong>
-                  <em>{layer.enabled ? LAYER_ROLE[id] : 'Off'}</em>
+                  <strong>{stage.label}</strong>
+                  <em>{stage.enabled ? LAYER_ROLE[id] : 'Off'}</em>
                 </span>
                 <span className={`flow-dot ${status}`} />
               </button>
@@ -115,7 +115,7 @@ export function DefenseLayersPanel({
             transition={{ duration: 0.2 }}
           >
             <p className="flow-kicker">
-              Gate {LAYER_INDEX[selectedId]} · {LAYER_ROLE[selectedId]}
+              {STAGE_INDEX[selectedId]} · {LAYER_ROLE[selectedId]}
             </p>
             <h3>{selectedMeta.label}</h3>
             <p>{selectedMeta.description}</p>
@@ -124,9 +124,19 @@ export function DefenseLayersPanel({
                 {selectedMeta.enabled ? 'Enabled' : 'Disabled'}
               </span>
               <span className={`flow-pill ${selectedStatus}`}>{statusLabel(selectedStatus)}</span>
-              <span>{latest ? `noul ${latest.confidence.toFixed(3)}` : 'noul —'}</span>
+              {!isS2 ? (
+                <span>{latest ? `noul ${latest.confidence.toFixed(3)}` : 'noul —'}</span>
+              ) : (
+                <span>no tools on planner</span>
+              )}
             </div>
-            {latest ? (
+            {isS2 ? (
+              <p className="flow-reason">
+                {selectedId === 'planner'
+                  ? 'P-LLM drafts the sequence from the user goal + schemas. Retrieved content is still unread.'
+                  : 'Once pinned, the executor may only run these steps. Poisoned docs cannot add send_email or change the plan.'}
+              </p>
+            ) : latest ? (
               <p className="flow-reason">{latest.reason}</p>
             ) : (
               <p className="flow-reason is-empty">
@@ -137,12 +147,13 @@ export function DefenseLayersPanel({
 
           <article className="flow-card flow-log">
             <div className="flow-log-head">
-              <h3>Recent verdicts</h3>
+              <h3>Recent S1 verdicts</h3>
               <span>{events.length === 0 ? 'quiet' : 'live'}</span>
             </div>
             {recent.length === 0 ? (
               <p className="flow-reason is-empty">
-                Yes = injection → block/drop. No = continue to the next node in the graph.
+                S1 yes = injection → block/drop. S1 no → S2 planner pins the plan, then content is
+                fetched under that plan.
               </p>
             ) : (
               <ul className="flow-events">
@@ -162,6 +173,7 @@ export function DefenseLayersPanel({
             )}
           </article>
         </div>
+      </div>
       </div>
     </section>
   )

@@ -435,23 +435,50 @@
   overflow: hidden;
 }
 
-.flow-graph {
+.defense-panel-bottom {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.defense-body {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: 0;
+  align-items: start;
   border-top: 1px solid var(--line);
+}
+
+.flow-graph {
   background:
-    linear-gradient(180deg, rgba(12, 28, 34, 0.04), transparent 48%),
-    linear-gradient(90deg, rgba(11, 127, 138, 0.04) 0%, transparent 40%);
+    linear-gradient(180deg, rgba(12, 28, 34, 0.04), transparent 28%),
+    linear-gradient(90deg, rgba(11, 127, 138, 0.04) 0%, transparent 55%);
 }
 
 .flow-graph-scroll {
-  overflow-x: auto;
-  padding: 18px 12px 4px;
+  overflow: visible;
+  padding: 12px 8px 4px;
 }
 
 .flow-graph svg {
   display: block;
-  width: 1720px;
+  width: min(100%, 720px);
   max-width: none;
-  height: 180px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.flow-band rect {
+  fill: rgba(12, 28, 34, 0.035);
+  stroke: rgba(12, 28, 34, 0.08);
+  stroke-width: 1;
+}
+
+.flow-band text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: #6d7b88;
 }
 
 .flow-edge path {
@@ -484,6 +511,14 @@
 
 .flow-edge.tone-no text {
   fill: #0b7f8a;
+}
+
+.flow-edge.tone-s2 path {
+  stroke: #3d5a80;
+}
+
+.flow-edge.tone-s2 text {
+  fill: #3d5a80;
 }
 
 .flow-edge.is-active path {
@@ -537,6 +572,17 @@
   stroke: #2f6f62;
 }
 
+.flow-node.kind-planner rect,
+.flow-node.kind-plan rect {
+  fill: #eef2f8;
+  stroke: #3d5a80;
+}
+
+.flow-node.status-planned rect {
+  fill: #e8eef8;
+  stroke: #3d5a80;
+}
+
 .flow-node.is-selectable {
   cursor: pointer;
 }
@@ -579,15 +625,15 @@
 .flow-dock {
   display: grid;
   gap: 12px;
-  padding: 0 16px 16px;
-  border-top: 1px solid var(--line);
+  padding: 14px 16px 16px;
+  border-left: 1px solid var(--line);
+  min-width: 0;
 }
 
 .flow-gates {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  padding-top: 12px;
 }
 
 .flow-gate {
@@ -670,9 +716,24 @@
   background: #c45c16;
 }
 
+.flow-dot.planned {
+  background: #3d5a80;
+}
+
+.flow-pill.planned {
+  color: #3d5a80;
+  border-color: rgba(61, 90, 128, 0.4);
+  background: rgba(61, 90, 128, 0.08);
+}
+
+.flow-gate.is-planned.is-on {
+  border-color: rgba(61, 90, 128, 0.45);
+  background: rgba(61, 90, 128, 0.08);
+}
+
 .flow-cards {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(260px, 1.2fr);
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -856,6 +917,15 @@
 }
 
 @media (max-width: 980px) {
+  .defense-body {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-dock {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
   .flow-gates,
   .flow-cards {
     grid-template-columns: 1fr;
