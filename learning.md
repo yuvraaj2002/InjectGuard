@@ -282,4 +282,17 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 
 ### Open / next to learn
 - Wire real auth later; keep the same injection point.
-- Next BankOps tools: `get_account`, `list_payees`, money-moving writes.
+- Next BankOps tools: `list_payees`, money-moving writes.
+
+---
+
+## 2026-11-10 — `get_account` + dispute→account chain
+
+### What we built
+- Synthetic accounts JSON + `get_account(account_id)` read tool.
+- Disputes already expose structured `account_id`; prompt tells the agent to prefer that field over free-text numbers in the body.
+
+### Concepts worth remembering
+- **Tool chaining** is how ops agents work: dispute → account_id → balance/status → (later) refund/transfer.
+- Structured fields vs body text is a trust lesson: poisoned body may say `ACCT-9999`, while the case’s real `account_id` is still `ACCT-1001`. Prefer structured ids until S3 taint/HITL exists.
+- Open `get_account` by id is over-privileged on purpose for now; ACL can come later (book-of-business or dispute-linked only).
