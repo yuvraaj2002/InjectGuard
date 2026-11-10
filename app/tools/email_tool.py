@@ -89,10 +89,7 @@ def _format_email(email: dict[str, Any]) -> str:
     )
 
 
-def read_email(
-    email_id: str | None = None,
-    query: str | None = None,
-) -> str:
+def read_email(email_id: str | None = None, query: str | None = None) -> str:
     """Read synthetic emails. Untrusted content is returned raw (vulnerable baseline)."""
     emails = _load_emails()
     if not emails:

@@ -6,18 +6,11 @@ import logging
 from dataclasses import dataclass
 from typing import Literal
 
-from app.config import (
-    GUARD_CONTENT_ACTION,
-    GUARD_INPUT,
-    GUARD_RETRIEVED_CONTEXT,
-    GUARD_TOOL_OUTPUT,
-)
-from defenses.s1_detection.decision_model_inference import DecisionModel, Verdict
+from app.config import GUARD_CONTENT_ACTION, GUARD_INPUT, GUARD_RETRIEVED_CONTEXT, GUARD_TOOL_OUTPUT
+from defenses.s1_detection.decision_model_inference import DecisionModel
 
 logger = logging.getLogger(__name__)
-
 RETRIEVAL_TOOLS = frozenset({"search_docs", "read_email", "read_ticket"})
-
 GuardAction = Literal["allow", "block", "drop", "flag"]
 
 
@@ -34,15 +27,7 @@ class GuardEvent:
 class ContentGuard:
     """Scores text with DecisionModel and applies block/drop/flag policy."""
 
-    def __init__(
-        self,
-        *,
-        decision_model: DecisionModel | None = None,
-        guard_input: bool = GUARD_INPUT,
-        guard_retrieved_context: bool = GUARD_RETRIEVED_CONTEXT,
-        guard_tool_output: bool = GUARD_TOOL_OUTPUT,
-        content_action: str = GUARD_CONTENT_ACTION,
-    ) -> None:
+    def __init__(self, *, decision_model: DecisionModel | None = None, guard_input: bool = GUARD_INPUT, guard_retrieved_context: bool = GUARD_RETRIEVED_CONTEXT, guard_tool_output: bool = GUARD_TOOL_OUTPUT, content_action: str = GUARD_CONTENT_ACTION) -> None:
         self.decision_model = decision_model or DecisionModel()
         self.guard_input = guard_input
         self.guard_retrieved_context = guard_retrieved_context
@@ -59,92 +44,30 @@ class ContentGuard:
 
         verdict = self.decision_model.score(text, source="user_input")
         if not verdict.injection:
-            event = GuardEvent(
-                layer="user_input",
-                action="allow",
-                injection=False,
-                confidence=verdict.confidence,
-                reason=verdict.reason,
-            )
-            return None, event
+            return None, GuardEvent(layer="user_input", action="allow", injection=False, confidence=verdict.confidence, reason=verdict.reason)
 
-        event = GuardEvent(
-            layer="user_input",
-            action="block",
-            injection=True,
-            confidence=verdict.confidence,
-            reason=verdict.reason,
-        )
-        logger.warning(
-            "S1 blocked user_input noul=%.3f reason=%s",
-            verdict.confidence,
-            verdict.reason,
-        )
-        reply = (
-            "Request blocked by the InjectGuard S1 decision model: the user "
-            f"message looks like a prompt injection/jailbreak ({verdict.reason})."
-        )
+        event = GuardEvent(layer="user_input", action="block", injection=True, confidence=verdict.confidence, reason=verdict.reason)
+        logger.warning("S1 blocked user_input noul=%.3f reason=%s", verdict.confidence, verdict.reason)
+        reply = f"Request blocked by the InjectGuard S1 decision model: the user message looks like a prompt injection/jailbreak ({verdict.reason})."
         return reply, event
 
-    def filter_tool_output(
-        self,
-        tool_name: str,
-        output: str,
-    ) -> tuple[str, GuardEvent | None]:
+    def filter_tool_output(self, tool_name: str, output: str) -> tuple[str, GuardEvent | None]:
         """Score retrieval/tool text; drop or flag when injection is detected."""
         is_retrieval = tool_name in RETRIEVAL_TOOLS
-        if is_retrieval:
-            if not self.guard_retrieved_context:
-                return output, None
-            layer: Literal["retrieved_context", "tool_output"] = "retrieved_context"
-            source = "retrieved_context"
-        else:
-            if not self.guard_tool_output:
-                return output, None
-            layer = "tool_output"
-            source = "tool_output"
+        if is_retrieval and not self.guard_retrieved_context:
+            return output, None
+        if not is_retrieval and not self.guard_tool_output:
+            return output, None
 
-        verdict = self.decision_model.score(output, source=source)
+        layer: Literal["retrieved_context", "tool_output"] = "retrieved_context" if is_retrieval else "tool_output"
+        verdict = self.decision_model.score(output, source=layer)
         if not verdict.injection:
-            return output, GuardEvent(
-                layer=layer,
-                action="allow",
-                injection=False,
-                confidence=verdict.confidence,
-                reason=verdict.reason,
-                tool_name=tool_name,
-            )
+            return output, GuardEvent(layer=layer, action="allow", injection=False, confidence=verdict.confidence, reason=verdict.reason, tool_name=tool_name)
 
-        action: GuardAction
-        filtered = output
         if self.content_action == "flag":
-            action = "flag"
-            logger.warning(
-                "S1 flagged %s tool=%s noul=%.3f (content still passed through)",
-                layer,
-                tool_name,
-                verdict.confidence,
-            )
-        else:
-            # default: drop
-            action = "drop"
-            filtered = (
-                f"[BLOCKED by S1 decision model: suspected prompt injection in "
-                f"{layer} from tool `{tool_name}` ({verdict.reason}). "
-                "Content withheld from the model.]"
-            )
-            logger.warning(
-                "S1 dropped %s tool=%s noul=%.3f",
-                layer,
-                tool_name,
-                verdict.confidence,
-            )
+            logger.warning("S1 flagged %s tool=%s noul=%.3f (content still passed through)", layer, tool_name, verdict.confidence)
+            return output, GuardEvent(layer=layer, action="flag", injection=True, confidence=verdict.confidence, reason=verdict.reason, tool_name=tool_name)
 
-        return filtered, GuardEvent(
-            layer=layer,
-            action=action,
-            injection=True,
-            confidence=verdict.confidence,
-            reason=verdict.reason,
-            tool_name=tool_name,
-        )
+        filtered = f"[BLOCKED by S1 decision model: suspected prompt injection in {layer} from tool `{tool_name}` ({verdict.reason}). Content withheld from the model.]"
+        logger.warning("S1 dropped %s tool=%s noul=%.3f", layer, tool_name, verdict.confidence)
+        return filtered, GuardEvent(layer=layer, action="drop", injection=True, confidence=verdict.confidence, reason=verdict.reason, tool_name=tool_name)

@@ -216,3 +216,13 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 - **Read tools** (`search_docs`, `read_email`, `read_ticket`) are mostly a *data* risk: they can pull poisoned instructions into context. Mitigate with S1 filter + Q-LLM schema extract so poison becomes fields, not new tool calls.
 - **Write tools** (`send_email`, `create_ticket`) are an *action* risk: one bad call exfils or escalates. Mitigate with **scoped params** — tainted values must not fill `to` / `assignee` (allowlist / HITL = S3). Body/summary can still be tainted content under an output filter.
 - Interview line: “Reads bring poison in; writes let poison out. Detection helps reads; capability policy is mandatory for writes.”
+
+---
+
+## 2026-11-10 — Why a domain theme (prefer banking ops)
+
+### Concepts worth remembering
+- A themed agent makes trust boundaries obvious: untrusted *customer/vendor messages* vs privileged *money-moving tools*.
+- **Best lab theme for prompt injection:** internal **banking / payments ops** assistant (not a public chatbot). Stakes are intuitive; write tools map cleanly to policy (`transfer.to_account`, `amount`, `payee`).
+- Theme helps S3: allowlists, HITL, and oracles (“did funds leave to attacker account?”) beat vague “email was sent.”
+- Keep it synthetic (`*.test` accounts, local sinks) — never real banking APIs.

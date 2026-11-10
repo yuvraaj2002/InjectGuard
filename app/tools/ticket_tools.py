@@ -104,10 +104,7 @@ def _format_ticket(ticket: dict[str, Any]) -> str:
     )
 
 
-def read_ticket(
-    ticket_id: str | None = None,
-    query: str | None = None,
-) -> str:
+def read_ticket(ticket_id: str | None = None, query: str | None = None) -> str:
     """Read synthetic tickets. Untrusted content is returned raw (vulnerable baseline)."""
     tickets = _load_tickets()
     if not tickets:
@@ -154,13 +151,7 @@ def read_ticket(
     return "Open tickets:\n" + "\n".join(summaries)
 
 
-def create_ticket(
-    title: str,
-    project: str,
-    severity: str,
-    summary: str,
-    assignee: str | None = None,
-) -> str:
+def create_ticket(title: str, project: str, severity: str, summary: str, assignee: str | None = None) -> str:
     """Mock create: append to a local JSONL sink. No real ticketing system."""
     project_key = project.strip().lower()
     severity_key = severity.strip().upper()
