@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from app.agent.baseline import BaselineAgent, run_chat
 from app.config import (
     DECISION_MODEL,
+    DEFAULT_USER_ID,
     GUARD_INPUT,
     GUARD_RETRIEVED_CONTEXT,
     GUARD_TOOL_OUTPUT,
@@ -37,7 +38,7 @@ def _guard_layers() -> list[GuardLayerInfo]:
             id="retrieved_context",
             label="Retrieved context",
             enabled=GUARD_RETRIEVED_CONTEXT,
-            description="Scores search_policies / read_email / read_ticket text before it enters context.",
+            description="Scores search_policies / read_dispute / read_email / read_ticket text before it enters context.",
         ),
         GuardLayerInfo(
             id="tool_output",
@@ -69,9 +70,10 @@ def list_tools() -> ToolsResponse:
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest) -> ChatResponse:
-    logger.info("Chat request received: %s", payload.message)
+    user_id = (payload.user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
+    logger.info("Chat request received user_id=%s message=%s", user_id, payload.message)
     try:
-        result = run_chat(payload.message)
+        result = run_chat(payload.message, user_id=user_id)
     except Exception as exc:  # noqa: BLE001 - surface local Ollama failures cleanly
         logger.exception("Chat backend failed")
         raise HTTPException(
@@ -80,7 +82,8 @@ def chat(payload: ChatRequest) -> ChatResponse:
         ) from exc
 
     logger.info(
-        "Chat response ready (%s chars, %s tool calls, %s guard events, blocked=%s)",
+        "Chat response ready user_id=%s (%s chars, %s tool calls, %s guard events, blocked=%s)",
+        result.user_id,
         len(result.reply),
         len(result.tool_calls),
         len(result.guard_events),
@@ -90,6 +93,7 @@ def chat(payload: ChatRequest) -> ChatResponse:
         message=payload.message,
         reply=result.reply,
         model=result.model,
+        user_id=result.user_id,
         available_tools=result.available_tools,
         tool_calls=[
             ToolCallTrace(

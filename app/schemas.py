@@ -8,7 +8,9 @@ class HealthResponse(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, examples=["How do I reset my password?"])
+    message: str = Field(min_length=1, examples=["What is our refund policy for unauthorized UPI?"])
+    # Stand-in for identity resolved from an auth token. Not chosen by the model.
+    user_id: str = Field(default="op-001", min_length=1, examples=["op-001"])
 
 
 class ToolInfo(BaseModel):
@@ -51,6 +53,7 @@ class ChatResponse(BaseModel):
     message: str
     reply: str
     model: str
+    user_id: str = "op-001"
     available_tools: list[str]
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
     guard_events: list[GuardEventTrace] = Field(default_factory=list)

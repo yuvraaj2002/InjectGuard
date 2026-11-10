@@ -260,3 +260,26 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Pitfalls / limitations
 - Attack dataset still mostly OpsPilot-shaped (email/ticket); banking write tools + dispute oracles come next.
 - Keyword search can miss synonyms (“chargeback” vs “refund”) or over-rank docs that share common ops words.
+
+---
+
+## 2026-11-10 — Session `user_id` + `read_dispute` ACL
+
+### What we built
+- `POST /chat` accepts `user_id` (mock stand-in for token→identity). Agent carries it for the whole turn.
+- `read_dispute`: list / `dispute_id` / `query`, scoped to `assignee == user_id`.
+- `search_policies` filtered by `policy_access.json` (user → allowed policy ids = markdown stems).
+- Tool schemas do **not** expose `user_id`; the executor injects session identity and ignores model-supplied ids.
+
+### Concepts worth remembering
+- **Authorization ≠ prompting.** “Only read your queue” must be enforced in tool code, or a jailbreak/poisoned doc can widen access by inventing another `user_id`.
+- Two retrieval modes: **id** (deterministic eval/demo) vs **query** (ops UX). Same ACL applies to both.
+- Disputes are the main **indirect injection** surface; policy ACL is a separate least-privilege lesson on RAG corpora.
+
+### Interview angle
+> Should the LLM pass `user_id` into tools?
+> No. Resolve identity outside the model (auth/session), inject it in the tool runner, and never trust tool args for tenancy. Otherwise the agent is a confused deputy.
+
+### Open / next to learn
+- Wire real auth later; keep the same injection point.
+- Next BankOps tools: `get_account`, `list_payees`, money-moving writes.

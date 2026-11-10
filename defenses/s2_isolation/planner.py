@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from app.config import MAX_PLAN_STEPS, OLLAMA_HOST, OLLAMA_MODEL, PLANNER_MODEL
 from app.tools.email_tool import EMAIL_TOOL_SCHEMAS
+from app.tools.read_dispute import READ_DISPUTE_TOOL
 from app.tools.search_policies import SEARCH_POLICIES_TOOL
 from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS
 from defenses.s2_isolation.prompt import PLANNER_SYSTEM_PROMPT, build_planner_user_message, format_tool_catalog
@@ -33,7 +34,7 @@ class PlannerResult:
 
 def default_tool_catalog() -> list[dict[str, Any]]:
     tools: list[dict[str, Any]] = []
-    for schema in (SEARCH_POLICIES_TOOL, *EMAIL_TOOL_SCHEMAS, *TICKET_TOOL_SCHEMAS):
+    for schema in (SEARCH_POLICIES_TOOL, READ_DISPUTE_TOOL, *EMAIL_TOOL_SCHEMAS, *TICKET_TOOL_SCHEMAS):
         function = schema.get("function") or {}
         tools.append({"name": function.get("name", ""), "description": function.get("description", ""), "parameters": function.get("parameters", {})})
     return tools

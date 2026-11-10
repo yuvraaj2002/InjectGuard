@@ -9,8 +9,9 @@ import ollama
 from rich import print
 
 from app.agent.prompt import SYSTEM_PROMPT
-from app.config import MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
+from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
 from app.tools.email_tool import EMAIL_TOOL_SCHEMAS, read_email, send_email
+from app.tools.read_dispute import READ_DISPUTE_TOOL, read_dispute
 from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.ticket_tools import TICKET_TOOL_SCHEMAS, create_ticket, read_ticket
 from defenses.s1_detection.guard import ContentGuard, GuardEvent
@@ -31,6 +32,7 @@ class ChatResult:
     reply: str
     model: str
     available_tools: list[str]
+    user_id: str = DEFAULT_USER_ID
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     guard_events: list[GuardEvent] = field(default_factory=list)
     blocked: bool = False
@@ -44,14 +46,25 @@ def _optional_str(value: Any) -> str | None:
 
 
 class BaselineAgent:
-    """OpsPilot agent with optional S1 decision-model guards on text boundaries."""
+    """BankOps agent with session user_id injected into read tools (not from the model)."""
 
-    def __init__(self, *, model: str = OLLAMA_MODEL, host: str = OLLAMA_HOST, max_tool_rounds: int = MAX_TOOL_ROUNDS, system_prompt: str = SYSTEM_PROMPT, content_guard: ContentGuard | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        model: str = OLLAMA_MODEL,
+        host: str = OLLAMA_HOST,
+        max_tool_rounds: int = MAX_TOOL_ROUNDS,
+        system_prompt: str = SYSTEM_PROMPT,
+        content_guard: ContentGuard | None = None,
+        user_id: str = DEFAULT_USER_ID,
+    ) -> None:
         self.model = model
         self.max_tool_rounds = max_tool_rounds
         self.system_prompt = system_prompt
+        self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
         self.tools: list[dict[str, Any]] = [
             SEARCH_POLICIES_TOOL,
+            READ_DISPUTE_TOOL,
             *EMAIL_TOOL_SCHEMAS,
             *TICKET_TOOL_SCHEMAS,
         ]
@@ -88,10 +101,22 @@ class BaselineAgent:
         return {}
 
     def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        # Session identity always wins — ignore any user_id the model might invent.
         if name == "search_policies":
             query = str(arguments.get("query", "")).strip()
-            logger.info("Running tool search_policies query=%r", query)
-            return search_policies(query)
+            logger.info("Running tool search_policies user_id=%s query=%r", self.user_id, query)
+            return search_policies(query, user_id=self.user_id)
+
+        if name == "read_dispute":
+            dispute_id = _optional_str(arguments.get("dispute_id"))
+            query = _optional_str(arguments.get("query"))
+            logger.info(
+                "Running tool read_dispute user_id=%s dispute_id=%r query=%r",
+                self.user_id,
+                dispute_id,
+                query,
+            )
+            return read_dispute(user_id=self.user_id, dispute_id=dispute_id, query=query)
 
         if name == "read_email":
             email_id = _optional_str(arguments.get("email_id"))
@@ -147,7 +172,7 @@ class BaselineAgent:
             print("[bold yellow]tool_calls[/bold yellow]", printed_calls)
 
     def chat(self, message: str) -> ChatResult:
-        logger.info("Starting chat with model=%s", self.model)
+        logger.info("Starting chat with model=%s user_id=%s", self.model, self.user_id)
         guard_events: list[GuardEvent] = []
 
         blocked_reply, input_event = self._guard.check_user_input(message)
@@ -155,7 +180,15 @@ class BaselineAgent:
             guard_events.append(input_event)
         if blocked_reply is not None:
             logger.info("Chat blocked at user_input layer")
-            return ChatResult(reply=blocked_reply, model=self.model, available_tools=self.available_tool_names, tool_calls=[], guard_events=guard_events, blocked=True)
+            return ChatResult(
+                reply=blocked_reply,
+                model=self.model,
+                available_tools=self.available_tool_names,
+                user_id=self.user_id,
+                tool_calls=[],
+                guard_events=guard_events,
+                blocked=True,
+            )
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
@@ -183,7 +216,15 @@ class BaselineAgent:
             if not assistant_message.tool_calls:
                 reply = (assistant_message.content or "").strip() or "No response generated."
                 logger.info("Chat completed without further tool calls")
-                return ChatResult(reply=reply, model=self.model, available_tools=self.available_tool_names, tool_calls=tool_calls, guard_events=guard_events, blocked=False)
+                return ChatResult(
+                    reply=reply,
+                    model=self.model,
+                    available_tools=self.available_tool_names,
+                    user_id=self.user_id,
+                    tool_calls=tool_calls,
+                    guard_events=guard_events,
+                    blocked=False,
+                )
 
             for tool_call in assistant_message.tool_calls:
                 name = tool_call.function.name
@@ -193,7 +234,9 @@ class BaselineAgent:
                 filtered_result, guard_event = self._guard.filter_tool_output(name, raw_result)
                 if guard_event is not None:
                     guard_events.append(guard_event)
-                tool_calls.append(ToolCallRecord(round=round_index, name=name, arguments=arguments, output=filtered_result))
+                tool_calls.append(
+                    ToolCallRecord(round=round_index, name=name, arguments=arguments, output=filtered_result)
+                )
                 messages.append({"role": "tool", "tool_name": name, "content": filtered_result})
 
         logger.warning("Reached max tool rounds (%s); asking for a final answer", self.max_tool_rounds)
@@ -201,9 +244,17 @@ class BaselineAgent:
         self._print_model_response(self.max_tool_rounds + 1, final.message)
         reply = (final.message.content or "").strip() or "No response generated."
         logger.info("Chat completed after max tool rounds")
-        return ChatResult(reply=reply, model=self.model, available_tools=self.available_tool_names, tool_calls=tool_calls, guard_events=guard_events, blocked=False)
+        return ChatResult(
+            reply=reply,
+            model=self.model,
+            available_tools=self.available_tool_names,
+            user_id=self.user_id,
+            tool_calls=tool_calls,
+            guard_events=guard_events,
+            blocked=False,
+        )
 
 
-def run_chat(message: str, *, model: str = OLLAMA_MODEL) -> ChatResult:
+def run_chat(message: str, *, model: str = OLLAMA_MODEL, user_id: str = DEFAULT_USER_ID) -> ChatResult:
     """Convenience wrapper used by the API router."""
-    return BaselineAgent(model=model).chat(message)
+    return BaselineAgent(model=model, user_id=user_id).chat(message)

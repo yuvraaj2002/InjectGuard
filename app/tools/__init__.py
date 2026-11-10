@@ -5,6 +5,7 @@ from app.tools.email_tool import (
     read_email,
     send_email,
 )
+from app.tools.read_dispute import READ_DISPUTE_TOOL, read_dispute
 from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.ticket_tools import (
     CREATE_TICKET_TOOL,
@@ -17,12 +18,14 @@ from app.tools.ticket_tools import (
 __all__ = [
     "CREATE_TICKET_TOOL",
     "EMAIL_TOOL_SCHEMAS",
+    "READ_DISPUTE_TOOL",
     "READ_EMAIL_TOOL",
     "READ_TICKET_TOOL",
     "SEARCH_POLICIES_TOOL",
     "SEND_EMAIL_TOOL",
     "TICKET_TOOL_SCHEMAS",
     "create_ticket",
+    "read_dispute",
     "read_email",
     "read_ticket",
     "search_policies",

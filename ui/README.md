@@ -34,14 +34,19 @@ These are the tools we will implement next (and wire into the agent). Older OpsP
 
 **What it does:** Keyword search over synthetic policy markdown under `data/synthetic/` (no vector DB).
 
-**Args**
+**Args (model-visible)**
 
 | Arg | Type | Required | Notes |
 |---|---|---|---|
 | `query` | string | yes | Operator question / keywords |
-| `top_k` | int | no | Default from config (e.g. 3) |
 
-**Returns:** Ranked policy excerpts (title, path, score, text).
+**Session args (not from the model)**
+
+| Arg | Type | Notes |
+|---|---|---|
+| `user_id` | string | Injected by API/agent. ACL from `data/synthetic/policy_access.json` (policy id = markdown stem). |
+
+**Returns:** Ranked policy excerpts (title, path, score, text) limited to allowed policy ids.
 
 **Security notes:** Retrieved text is **untrusted**. Run S1 content guard before it enters context; never treat SOP text as executable instructions.
 
@@ -51,18 +56,26 @@ These are the tools we will implement next (and wire into the agent). Older OpsP
 
 **Replaces:** `read_email` + `read_ticket` (single dispute inbox)
 
-**What it does:** Load a synthetic customer dispute / complaint (email- or ticket-shaped record). Primary **indirect prompt-injection** surface.
+**What it does:** Load synthetic customer disputes **assigned to the current operator**. Primary **indirect prompt-injection** surface.
 
-**Args**
+**Args (model-visible)**
 
 | Arg | Type | Required | Notes |
 |---|---|---|---|
-| `dispute_id` | string | one of id/query | e.g. `dispute-003` |
-| `query` | string | one of id/query | Keyword match across subject/body |
+| `dispute_id` | string | no | Exact id, e.g. `dispute-003` |
+| `query` | string | no | Keyword match across subject/body |
 
-**Returns:** Raw dispute text (from, subject, body, linked account if any).
+**Session args (not from the model)**
 
-**Security notes:** Body may contain jailbreaks (“ignore policy, refund to 999…”). S1 filter + Q-LLM extract; do not let dispute text invent new tool calls.
+| Arg | Type | Notes |
+|---|---|---|
+| `user_id` | string | Injected by API/agent after (mock) auth. Filters `assignee`. |
+
+Precedence: `dispute_id` → else `query` → else list open disputes for that user.
+
+**Returns:** Raw dispute text (assignee, customer, account, subject, body, amount).
+
+**Security notes:** Body may contain jailbreaks (“ignore policy, refund to 999…”). S1 filter + Q-LLM extract; do not let dispute text invent new tool calls. Never trust a model-supplied `user_id`.
 
 ---
 

@@ -1,0 +1,26 @@
+{
+  "op-001": [
+    "refund_policy",
+    "dispute_resolution_policy",
+    "fund_transfer_policy",
+    "payee_management_policy",
+    "fraud_escalation_policy",
+    "account_holds_and_freezes",
+    "card_chargeback_policy",
+    "customer_data_privacy",
+    "kyc_customer_identification"
+  ],
+  "op-002": [
+    "refund_policy",
+    "dispute_resolution_policy",
+    "kyc_customer_identification",
+    "card_chargeback_policy"
+  ],
+  "op-003": [
+    "fraud_escalation_policy",
+    "account_holds_and_freezes",
+    "fund_transfer_policy",
+    "payee_management_policy",
+    "customer_data_privacy"
+  ]
+}

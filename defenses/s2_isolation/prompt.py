@@ -12,7 +12,7 @@ You do NOT execute tools. You do NOT see email/doc/ticket contents — only sche
 Rules:
 1. Output ONE JSON object only (no markdown fences, no prose outside JSON).
 2. Plan BEFORE any untrusted content is read. Do not invent tool results.
-3. Use only these tools: search_policies, read_email, send_email, read_ticket, create_ticket.
+3. Use only these tools: search_policies, read_dispute, read_email, send_email, read_ticket, create_ticket.
 4. Prefer the minimum steps needed. Max 8 steps.
 5. For values that must come from retrieved content later, use placeholders like "$email_summary".
 6. For values the USER already stated (ids, explicit recipients), you may use literals.

@@ -1,6 +1,7 @@
 """Deterministic plan executor: walks a pinned AgentPlan and calls real tools.
 
 No LLM here. `$var` placeholders resolve from a simple dict; Q-LLM fills them later.
+Session user_id is injected into read tools by the executor, not by the plan/model.
 """
 
 from __future__ import annotations
@@ -9,7 +10,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from app.config import DEFAULT_USER_ID
 from app.tools.email_tool import read_email, send_email
+from app.tools.read_dispute import read_dispute
 from app.tools.search_policies import search_policies
 from app.tools.ticket_tools import create_ticket, read_ticket
 from defenses.s2_isolation.schema import ALLOWED_TOOLS, AgentPlan, PlanStep, is_variable_ref
@@ -44,10 +47,17 @@ def _optional_str(value: Any) -> str | None:
     return text or None
 
 
-def _dispatch_tool(name: str, arguments: dict[str, Any]) -> str:
+def _dispatch_tool(name: str, arguments: dict[str, Any], *, user_id: str = DEFAULT_USER_ID) -> str:
     """Call one known tool. Same surface as the baseline agent."""
     if name == "search_policies":
-        return search_policies(str(arguments.get("query", "")).strip())
+        return search_policies(str(arguments.get("query", "")).strip(), user_id=user_id)
+
+    if name == "read_dispute":
+        return read_dispute(
+            user_id=user_id,
+            dispute_id=_optional_str(arguments.get("dispute_id")),
+            query=_optional_str(arguments.get("query")),
+        )
 
     if name == "read_email":
         return read_email(email_id=_optional_str(arguments.get("email_id")), query=_optional_str(arguments.get("query")))
@@ -79,8 +89,15 @@ def _dispatch_tool(name: str, arguments: dict[str, Any]) -> str:
 class PlanExecutor:
     """Walk a pinned plan step-by-step and execute tools in order."""
 
-    def __init__(self, *, tool_runner: Callable[[str, dict[str, Any]], str] | None = None, stop_on_error: bool = True) -> None:
-        self._run_tool = tool_runner or _dispatch_tool
+    def __init__(
+        self,
+        *,
+        tool_runner: Callable[[str, dict[str, Any]], str] | None = None,
+        stop_on_error: bool = True,
+        user_id: str = DEFAULT_USER_ID,
+    ) -> None:
+        self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
+        self._run_tool = tool_runner or (lambda name, args: _dispatch_tool(name, args, user_id=self.user_id))
         self.stop_on_error = stop_on_error
 
     def resolve_args(self, args: dict[str, Any], variables: dict[str, str]) -> tuple[dict[str, Any], str | None]:
@@ -104,7 +121,7 @@ class PlanExecutor:
         if err is not None:
             return StepResult(index=index, tool=step.tool, args=dict(step.args), output="", save_as=step.save_as, ok=False, error=err)
 
-        logger.info("PlanExecutor step[%s] %s args=%s", index, step.tool, resolved)
+        logger.info("PlanExecutor step[%s] %s args=%s user_id=%s", index, step.tool, resolved, self.user_id)
         try:
             output = self._run_tool(step.tool, resolved)
         except Exception as exc:  # noqa: BLE001 — surface tool failures as step errors
@@ -131,11 +148,9 @@ class PlanExecutor:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    demo = AgentPlan(goal="Read a known email", steps=[PlanStep(tool="read_email", args={"email_id": "email-003"}, save_as="email_raw")])
-    outcome = PlanExecutor().execute(demo)
+    demo = AgentPlan(goal="List my disputes", steps=[PlanStep(tool="read_dispute", args={}, save_as="queue")])
+    outcome = PlanExecutor(user_id="op-001").execute(demo)
     print("ok=", outcome.ok)
     for step in outcome.steps:
         print(f"[{step.index}] {step.tool} ok={step.ok} error={step.error}")
         print(step.output[:400], "\n---")
-    if "email_raw" in outcome.variables:
-        print("saved variable email_raw chars=", len(outcome.variables["email_raw"]))

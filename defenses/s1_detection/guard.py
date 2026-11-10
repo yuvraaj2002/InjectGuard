@@ -10,7 +10,7 @@ from app.config import GUARD_CONTENT_ACTION, GUARD_INPUT, GUARD_RETRIEVED_CONTEX
 from defenses.s1_detection.decision_model_inference import DecisionModel
 
 logger = logging.getLogger(__name__)
-RETRIEVAL_TOOLS = frozenset({"search_policies", "read_email", "read_ticket"})
+RETRIEVAL_TOOLS = frozenset({"search_policies", "read_dispute", "read_email", "read_ticket"})
 GuardAction = Literal["allow", "block", "drop", "flag"]
 
 
