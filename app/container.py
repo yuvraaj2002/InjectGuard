@@ -6,7 +6,6 @@ import logging
 from dataclasses import dataclass
 
 from defenses.s1_detection.decision_model_inference import DecisionModel
-from defenses.s1_detection.guard import ContentGuard
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +20,18 @@ class AppContainer:
     """
 
     decision_model: DecisionModel
-    content_guard: ContentGuard
 
     @classmethod
     def build(cls) -> AppContainer:
         decision_model = DecisionModel()
         decision_model.open()
-        # Input gate lives in handle_chat; this guard is for later content stages.
-        content_guard = ContentGuard(decision_model=decision_model, guard_input=False)
         logger.info(
             "AppContainer ready decision_model=%s threshold=%.3f",
             decision_model.model,
             decision_model.threshold,
         )
-        return cls(decision_model=decision_model, content_guard=content_guard)
+        return cls(decision_model=decision_model)
 
     def close(self) -> None:
-        self.content_guard.close()
+        self.decision_model.close()
         logger.info("AppContainer closed")

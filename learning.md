@@ -368,3 +368,8 @@ Running notes while building this project. Prefer **interview-ready** takeaways:
 ### Interview angle
 > How do you avoid creating a new guard-model client on every chat request?
 > Build an app container in the FastAPI lifespan, open the client once, put it on `app.state`, and inject it into the chat helper via Depends. Close it on shutdown.
+
+### Follow-up — keep the scorer flat
+- `DecisionModel` is now just **open / score / close**. `score(text) → Verdict(injection, confidence)`.
+- No module-level singleton (`score_text`); the container *is* the shared instance.
+- `ContentGuard` (`guard.py`) stays in the repo but is **not** wired into `handle_chat` yet — chat path is only decision-model reject-or-continue.

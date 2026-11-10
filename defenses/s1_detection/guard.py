@@ -37,7 +37,8 @@ class ContentGuard:
         self.content_action = content_action.strip().lower()
 
     def close(self) -> None:
-        self.decision_model.close()
+        # DecisionModel lifetime is owned by AppContainer (or the caller that opened it).
+        pass
 
     def check_user_input(self, text: str) -> tuple[str | None, GuardEvent | None]:
         """Return (blocked_reply, event). blocked_reply is set when input is blocked."""
