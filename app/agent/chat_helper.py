@@ -1,12 +1,13 @@
-"""POST /chat helper: S1 input gate → baseline BankOps agent."""
+"""POST /chat helper: S1 gates → baseline BankOps agent."""
 
 from __future__ import annotations
 
 import logging
 
-from app.agent.baseline import BaselineAgent, ChatResult
+from app.agent.baseline import TOOL_SCHEMAS, BaselineAgent, ChatResult
 from app.config import DEFAULT_USER_ID, OLLAMA_MODEL
 from app.container import AppContainer
+from app.guardrails.s1_detection.guard import ContentGuard
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ def handle_chat(
     model: str = OLLAMA_MODEL,
     container: AppContainer | None = None,
 ) -> ChatResult:
-    """S1 input classifier on the user message, then the baseline tool-calling agent.
+    """S1 on user message, then tool-calling agent with S1 on retrieved/tool text.
 
     S2 plan-then-execute is intentionally not on this path yet.
     """
@@ -27,30 +28,33 @@ def handle_chat(
     services = container or AppContainer.build()
 
     try:
-        # --- S1: user-message input classifier ---
-        verdict = services.input_classifier.score(message, source="user_input")
-        if verdict.injection:
-            logger.warning(
-                "Rejected user message score=%.3f reason=%s model=%s",
-                verdict.confidence,
-                verdict.reason,
-                verdict.model,
-            )
-            from app.agent.baseline import TOOL_SCHEMAS
+        guard = ContentGuard(classifier=services.input_classifier)
 
+        # --- S1: user-message gate (block) ---
+        blocked_reply, input_event = guard.check_user_input(message)
+        if blocked_reply is not None:
+            logger.warning(
+                "Rejected user message reason=%s",
+                input_event.reason if input_event else "unknown",
+            )
             return ChatResult(
-                reply=(
-                    "Request blocked: the message looks like a prompt injection/jailbreak "
-                    f"({verdict.reason})."
-                ),
+                reply=blocked_reply,
                 model=model,
                 available_tools=[tool["function"]["name"] for tool in TOOL_SCHEMAS],
                 user_id=resolved_user_id,
+                guard_events=[input_event] if input_event is not None else [],
                 blocked=True,
             )
 
-        # S1 allowed → tool-calling loop (model proposes → app executes → results re-enter)
-        return BaselineAgent(model=model, user_id=resolved_user_id).chat(message)
+        # --- Agent loop: tools → S1 on retrieved context / tool outputs → reply ---
+        result = BaselineAgent(
+            model=model,
+            user_id=resolved_user_id,
+            content_guard=guard,
+        ).chat(message)
+        if input_event is not None:
+            result.guard_events = [input_event, *result.guard_events]
+        return result
     finally:
         if owns_container:
             services.close()

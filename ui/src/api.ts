@@ -20,7 +20,7 @@ export type ToolCallTrace = {
 
 export type GuardEventTrace = {
   layer: 'user_input' | 'retrieved_context' | 'tool_output'
-  action: 'allow' | 'block' | 'drop' | 'flag'
+  action: 'allow' | 'block' | 'drop'
   injection: boolean
   confidence: number
   reason: string

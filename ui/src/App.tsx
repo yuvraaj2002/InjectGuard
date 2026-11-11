@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { fetchHealth, fetchTools, sendChat } from './api'
 import type { ChatResponse, ToolCallTrace, ToolInfo } from './api'
+import { ArchitectureFlow } from './components/ArchitectureFlow'
 import './App.css'
 
 type ChatTurn = {
@@ -113,6 +114,8 @@ function App() {
           <span>{model}</span>
         </div>
       </header>
+
+      <ArchitectureFlow events={lastResult?.guard_events ?? []} />
 
       <main className="layout">
         <aside className="tools">

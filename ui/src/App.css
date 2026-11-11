@@ -10,7 +10,7 @@
   justify-content: space-between;
   align-items: flex-end;
   gap: 16px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
 }
@@ -279,6 +279,234 @@
   font-size: 0.85rem;
 }
 
+/* ——— Architecture diagram ——— */
+.arch {
+  margin-bottom: 28px;
+  padding: 18px 0 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.arch-head {
+  margin-bottom: 16px;
+  max-width: 40rem;
+}
+
+.arch-head h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.arch-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.arch-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 520px;
+}
+
+.arch-cycle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.arch-cycle-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.arch-return {
+  position: relative;
+  margin: 22px 0 22px 0;
+  border: 1px solid rgba(15, 42, 58, 0.35);
+  border-left: none;
+  border-radius: 0 16px 16px 0;
+}
+
+.arch-return::before {
+  content: "←";
+  position: absolute;
+  top: -11px;
+  left: -6px;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  color: #0f2a3a;
+}
+
+.arch-return span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-40%, -50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.arch-exit {
+  display: grid;
+  grid-template-columns: auto 1px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin-top: 14px;
+  max-width: calc(100% - 82px);
+}
+
+.arch-exit-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.arch-exit-line {
+  width: 1px;
+  height: 28px;
+  background: rgba(18, 22, 28, 0.18);
+  justify-self: center;
+}
+
+.arch-node {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.arch-node.model {
+  border-color: #0f2a3a;
+  background: #0f2a3a;
+  color: #eef5f7;
+}
+
+.arch-node.gate {
+  border-color: rgba(11, 127, 138, 0.45);
+  background: var(--accent-soft);
+}
+
+.arch-node.hot-allow {
+  box-shadow: inset 0 0 0 1px var(--ok);
+}
+
+.arch-node.hot-block {
+  box-shadow: inset 0 0 0 1px var(--danger);
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.arch-node.model.hot-allow,
+.arch-node.model.hot-block {
+  box-shadow: none;
+  color: #eef5f7;
+}
+
+.arch-kicker {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.arch-node.model .arch-kicker,
+.arch-node.model em {
+  color: rgba(238, 245, 247, 0.65);
+}
+
+.arch-node strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.arch-node em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.arch-connector {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 2px 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.arch-line {
+  display: block;
+  width: 1px;
+  height: 10px;
+  background: var(--line-strong, rgba(18, 22, 28, 0.18));
+}
+
+.arch-chevron {
+  line-height: 1;
+}
+
+.arch-connector-label {
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.arch-legend {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.arch-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.gate-swatch {
+  background: var(--accent);
+}
+
+.model-swatch {
+  background: #0f2a3a;
+}
+
+.drop-swatch {
+  background: var(--danger);
+}
+
 @media (max-width: 800px) {
   .layout {
     grid-template-columns: 1fr;
@@ -298,5 +526,14 @@
 
   .meta {
     align-items: flex-start;
+  }
+
+  .arch-stack,
+  .arch-exit {
+    max-width: none;
+  }
+
+  .arch-return span {
+    transform: translate(-30%, -50%) rotate(180deg);
   }
 }

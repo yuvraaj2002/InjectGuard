@@ -6,8 +6,6 @@ from app.agent.baseline import BaselineAgent
 from app.agent.chat_helper import handle_chat
 from app.config import (
     DEFAULT_USER_ID,
-    GUARD_RETRIEVED_CONTEXT,
-    GUARD_TOOL_OUTPUT,
     INPUT_CLASSIFIER_MODEL,
     OLLAMA_MODEL,
 )
@@ -39,14 +37,14 @@ def _guard_layers() -> list[GuardLayerInfo]:
         GuardLayerInfo(
             id="retrieved_context",
             label="Retrieved context",
-            enabled=GUARD_RETRIEVED_CONTEXT,
-            description="Scores search_policies / read_dispute / get_account / list_payees text before it enters context (not wired yet).",
+            enabled=True,
+            description="Scores search_policies / read_dispute / get_account / list_payees text before it re-enters context.",
         ),
         GuardLayerInfo(
             id="tool_output",
             label="Tool output",
-            enabled=GUARD_TOOL_OUTPUT,
-            description="Scores other tool results (e.g. transfer_funds / issue_refund confirmations) before re-entry (not wired yet).",
+            enabled=True,
+            description="Scores other tool results (e.g. transfer_funds / issue_refund) before re-entry.",
         ),
     ]
 

@@ -38,10 +38,10 @@ BankOps = a **tool-calling banking ops agent** that is intentionally vulnerable 
 
 ## Tool-calling agents
 
-- Loop in `BaselineAgent.chat`: Ollama gets tool schemas → model may emit `tool_calls` → app runs handlers → append `role=tool` results → call model again until a plain reply (or max rounds).
+- Loop in `BaselineAgent.chat`: Ollama gets tool schemas → model may emit `tool_calls` → app runs handlers → **S1 scores the output** → append (possibly dropped) `role=tool` results → call model again until a plain reply (or max rounds).
 - The model only *proposes* tools; **your code** executes them and feeds results back into context.
 - That re-entry is why agents are riskier than Q&A RAG: untrusted tool output can be treated like instructions.
-- Today: S1 only on the **user message**; retrieved policy / dispute / tool text is still trusted by the model once tools run.
+- S1 now covers three boundaries: **user message** (block), **retrieved context** from read tools (always drop), **other tool outputs** (always drop).
 - Keyword RAG is enough here — the lesson is *after retrieval*, not retrieval quality.
 
 ---
@@ -60,7 +60,7 @@ BankOps = a **tool-calling banking ops agent** that is intentionally vulnerable 
 
 - **Input classifier (current):** Meta Llama Prompt Guard 2 (86M) — small **encoder** (mDeBERTa), not an LLM. Binary top label: BENIGN vs MALICIOUS (+ score). Block on MALICIOUS; no threshold yet. Lives under `app/guardrails/`.
 - Why not a decision LLM for this gate? Latency/cost/variance. A classifier is deterministic and cheap enough to run on every user message (and later on retrieved/tool text).
-- Same scorer, different actions later: **block** user input; **drop/flag** retrieved/tool text (toggles still off).
+- Same scorer, different actions: **block** user input; **drop** retrieved/tool text (replace with a short block notice) before it re-enters the model.
 - Detectors still fail: paraphrases / tokenization tricks slip through; false blocks hurt utility. Pair with S2/S3.
 - Fail-open on scorer errors is a product choice — call it out in reviews.
 - Legacy: Ollama System One (`noul`) lives in `decision_model_inference.py` for ablation — not on the hot path.
@@ -102,7 +102,7 @@ Interview line: *Reads bring poison in; writes let poison out. Detection helps r
 
 ## App wiring (short)
 
-- **Chat helper (current):** S1 classifier on user message → baseline tool-calling agent (S2 plan-then-execute not on this path yet).
+- **Chat helper:** `ContentGuard` on user message → `BaselineAgent` with the same guard on every tool result (retrieval vs write tools).
 - **AppContainer:** load classifier once at FastAPI lifespan; inject into handlers. Process-scoped services ≠ request-scoped `user_id`.
 - Classifier weights download from Hugging Face on first `open()` (Prompt Guard is gated — accept license + login once).
 

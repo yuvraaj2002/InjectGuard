@@ -6,14 +6,13 @@ import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from app.config import GUARD_CONTENT_ACTION, GUARD_RETRIEVED_CONTEXT, GUARD_TOOL_OUTPUT
 from app.guardrails.s1_detection.decision_model_inference import Verdict
 
 logger = logging.getLogger(__name__)
 RETRIEVAL_TOOLS = frozenset(
     {"search_policies", "read_dispute", "get_account", "list_payees"}
 )
-GuardAction = Literal["allow", "block", "drop", "flag"]
+GuardAction = Literal["allow", "block", "drop"]
 
 
 class TextScorer(Protocol):
@@ -33,24 +32,15 @@ class GuardEvent:
 
 
 class ContentGuard:
-    """Scores text with an S1 classifier and applies block/drop/flag policy.
+    """Scores text with an S1 classifier.
 
-    v1 chat path uses ``InputClassifier`` only for user input. Retrieved /
-    tool-output scoring stays behind toggles until those stages are enabled.
+    User input → block the request. Retrieved context / tool output → always
+    **drop** malicious text and replace it with a short block notice before
+    re-entry into the model.
     """
 
-    def __init__(
-        self,
-        *,
-        classifier: TextScorer,
-        guard_retrieved_context: bool = GUARD_RETRIEVED_CONTEXT,
-        guard_tool_output: bool = GUARD_TOOL_OUTPUT,
-        content_action: str = GUARD_CONTENT_ACTION,
-    ) -> None:
+    def __init__(self, *, classifier: TextScorer) -> None:
         self.classifier = classifier
-        self.guard_retrieved_context = guard_retrieved_context
-        self.guard_tool_output = guard_tool_output
-        self.content_action = content_action.strip().lower()
 
     def close(self) -> None:
         # Classifier lifetime is owned by AppContainer (or the caller that opened it).
@@ -87,13 +77,8 @@ class ContentGuard:
         return reply, event
 
     def filter_tool_output(self, tool_name: str, output: str) -> tuple[str, GuardEvent | None]:
-        """Score retrieval/tool text; drop or flag when injection is detected."""
+        """Score retrieval/tool text; always drop when injection is detected."""
         is_retrieval = tool_name in RETRIEVAL_TOOLS
-        if is_retrieval and not self.guard_retrieved_context:
-            return output, None
-        if not is_retrieval and not self.guard_tool_output:
-            return output, None
-
         layer: Literal["retrieved_context", "tool_output"] = (
             "retrieved_context" if is_retrieval else "tool_output"
         )
@@ -108,24 +93,8 @@ class ContentGuard:
                 tool_name=tool_name,
             )
 
-        if self.content_action == "flag":
-            logger.warning(
-                "S1 flagged %s tool=%s confidence=%.3f (content still passed through)",
-                layer,
-                tool_name,
-                verdict.confidence,
-            )
-            return output, GuardEvent(
-                layer=layer,
-                action="flag",
-                injection=True,
-                confidence=verdict.confidence,
-                reason=verdict.reason,
-                tool_name=tool_name,
-            )
-
         filtered = (
-            f"[BLOCKED by S1 input classifier: suspected prompt injection in {layer} "
+            f"[BLOCKED by S1: suspected prompt injection in {layer} "
             f"from tool `{tool_name}` ({verdict.reason}). Content withheld from the model.]"
         )
         logger.warning("S1 dropped %s tool=%s confidence=%.3f", layer, tool_name, verdict.confidence)

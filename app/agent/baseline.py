@@ -11,6 +11,7 @@ import ollama
 
 from app.agent.prompt import SYSTEM_PROMPT
 from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
+from app.guardrails.s1_detection.guard import ContentGuard, GuardEvent
 from app.tools.get_account import GET_ACCOUNT_TOOL, get_account
 from app.tools.issue_refund import ISSUE_REFUND_TOOL, issue_refund
 from app.tools.list_payees import LIST_PAYEES_TOOL, list_payees
@@ -87,13 +88,13 @@ class ChatResult:
     available_tools: list[str]
     user_id: str = DEFAULT_USER_ID
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
-    guard_events: list[Any] = field(default_factory=list)
+    guard_events: list[GuardEvent] = field(default_factory=list)
     plan: dict[str, Any] | None = None
     blocked: bool = False
 
 
 class BaselineAgent:
-    """Tool-calling agent: model proposes tools → app executes → results re-enter context."""
+    """Tool-calling agent: model proposes tools → app executes → S1 filters → re-enter."""
 
     def __init__(
         self,
@@ -103,11 +104,13 @@ class BaselineAgent:
         max_tool_rounds: int = MAX_TOOL_ROUNDS,
         system_prompt: str = SYSTEM_PROMPT,
         user_id: str = DEFAULT_USER_ID,
+        content_guard: ContentGuard | None = None,
     ) -> None:
         self.model = model
         self.max_tool_rounds = max_tool_rounds
         self.system_prompt = system_prompt
         self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
+        self.content_guard = content_guard
         self.tools = TOOL_SCHEMAS
         self._client = ollama.Client(host=host)
 
@@ -147,13 +150,14 @@ class BaselineAgent:
         return handler(arguments, self.user_id)
 
     def chat(self, message: str) -> ChatResult:
-        """Loop: chat(with tools) → execute tool_calls → append tool results → repeat."""
+        """Loop: chat(with tools) → execute → S1 filter output → re-enter → repeat."""
         logger.info("Starting chat model=%s user_id=%s", self.model, self.user_id)
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": message},
         ]
         tool_calls: list[ToolCallRecord] = []
+        guard_events: list[GuardEvent] = []
 
         for round_index in range(1, self.max_tool_rounds + 1):
             response = self._client.chat(
@@ -179,12 +183,17 @@ class BaselineAgent:
                     available_tools=self.available_tool_names,
                     user_id=self.user_id,
                     tool_calls=tool_calls,
+                    guard_events=guard_events,
                 )
 
             for call in assistant.tool_calls:
                 name = call.function.name
                 arguments = self._parse_args(call.function.arguments or {})
                 output = self._run_tool(name, arguments)
+                if self.content_guard is not None:
+                    output, event = self.content_guard.filter_tool_output(name, output)
+                    if event is not None:
+                        guard_events.append(event)
                 tool_calls.append(
                     ToolCallRecord(round=round_index, name=name, arguments=arguments, output=output)
                 )
@@ -199,6 +208,7 @@ class BaselineAgent:
             available_tools=self.available_tool_names,
             user_id=self.user_id,
             tool_calls=tool_calls,
+            guard_events=guard_events,
         )
 
 

@@ -42,7 +42,7 @@ class ToolCallTrace(BaseModel):
 
 class GuardEventTrace(BaseModel):
     layer: Literal["user_input", "retrieved_context", "tool_output"]
-    action: Literal["allow", "block", "drop", "flag"]
+    action: Literal["allow", "block", "drop"]
     injection: bool
     confidence: float
     reason: str
