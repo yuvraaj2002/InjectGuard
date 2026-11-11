@@ -1,12 +1,13 @@
+"""Baseline BankOps agent: Ollama tool-calling loop (propose → execute → re-enter)."""
+
 from __future__ import annotations
 
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import ollama
-from rich import print
 
 from app.agent.prompt import SYSTEM_PROMPT
 from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
@@ -18,6 +19,57 @@ from app.tools.search_policies import SEARCH_POLICIES_TOOL, search_policies
 from app.tools.transfer_funds import TRANSFER_FUNDS_TOOL, transfer_funds
 
 logger = logging.getLogger(__name__)
+
+TOOL_SCHEMAS: list[dict[str, Any]] = [
+    SEARCH_POLICIES_TOOL,
+    READ_DISPUTE_TOOL,
+    GET_ACCOUNT_TOOL,
+    LIST_PAYEES_TOOL,
+    TRANSFER_FUNDS_TOOL,
+    ISSUE_REFUND_TOOL,
+]
+
+# name → (arguments, session_user_id) → tool output string
+ToolHandler = Callable[[dict[str, Any], str], str]
+
+
+def _str_arg(arguments: dict[str, Any], key: str, default: str = "") -> str:
+    return str(arguments.get(key, default) or "").strip()
+
+
+def _opt_str(arguments: dict[str, Any], key: str) -> str | None:
+    value = arguments.get(key)
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+TOOL_HANDLERS: dict[str, ToolHandler] = {
+    "search_policies": lambda args, user_id: search_policies(
+        _str_arg(args, "query"), user_id=user_id
+    ),
+    "read_dispute": lambda args, user_id: read_dispute(
+        user_id=user_id,
+        dispute_id=_opt_str(args, "dispute_id"),
+        query=_opt_str(args, "query"),
+    ),
+    "get_account": lambda args, _user_id: get_account(_str_arg(args, "account_id")),
+    "list_payees": lambda args, _user_id: list_payees(_str_arg(args, "account_id")),
+    "transfer_funds": lambda args, _user_id: transfer_funds(
+        from_account=_str_arg(args, "from_account"),
+        to_account=_str_arg(args, "to_account"),
+        amount=args.get("amount", ""),
+        currency=_str_arg(args, "currency", "INR") or "INR",
+        memo=_opt_str(args, "memo"),
+    ),
+    "issue_refund": lambda args, _user_id: issue_refund(
+        dispute_id=_str_arg(args, "dispute_id"),
+        to_account=_str_arg(args, "to_account"),
+        amount=args.get("amount", ""),
+        reason=_opt_str(args, "reason"),
+    ),
+}
 
 
 @dataclass
@@ -35,20 +87,13 @@ class ChatResult:
     available_tools: list[str]
     user_id: str = DEFAULT_USER_ID
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
-    guard_events: list[Any] = field(default_factory=list)  # filled later when ContentGuard is wired
-    plan: dict[str, Any] | None = None  # pinned S2 plan (goal + steps), if any
+    guard_events: list[Any] = field(default_factory=list)
+    plan: dict[str, Any] | None = None
     blocked: bool = False
 
 
-def _optional_str(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 class BaselineAgent:
-    """BankOps agent with session user_id injected into read tools (not from the model)."""
+    """Tool-calling agent: model proposes tools → app executes → results re-enter context."""
 
     def __init__(
         self,
@@ -63,14 +108,7 @@ class BaselineAgent:
         self.max_tool_rounds = max_tool_rounds
         self.system_prompt = system_prompt
         self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
-        self.tools: list[dict[str, Any]] = [
-            SEARCH_POLICIES_TOOL,
-            READ_DISPUTE_TOOL,
-            GET_ACCOUNT_TOOL,
-            LIST_PAYEES_TOOL,
-            TRANSFER_FUNDS_TOOL,
-            ISSUE_REFUND_TOOL,
-        ]
+        self.tools = TOOL_SCHEMAS
         self._client = ollama.Client(host=host)
 
     @property
@@ -78,119 +116,39 @@ class BaselineAgent:
         return [tool["function"]["name"] for tool in self.tools]
 
     def list_tools(self) -> list[dict[str, Any]]:
-        tools: list[dict[str, Any]] = []
-        for tool in self.tools:
-            function = tool["function"]
-            tools.append(
-                {
-                    "name": function["name"],
-                    "description": function.get("description", ""),
-                    "parameters": function.get("parameters", {}),
-                }
-            )
-        return tools
+        return [
+            {
+                "name": tool["function"]["name"],
+                "description": tool["function"].get("description", ""),
+                "parameters": tool["function"].get("parameters", {}),
+            }
+            for tool in self.tools
+        ]
 
     @staticmethod
-    def _parse_tool_arguments(raw_args: Any) -> dict[str, Any]:
+    def _parse_args(raw_args: Any) -> dict[str, Any]:
+        if isinstance(raw_args, dict):
+            return dict(raw_args)
         if isinstance(raw_args, str):
             try:
                 parsed = json.loads(raw_args)
             except json.JSONDecodeError:
                 return {"query": raw_args}
             return parsed if isinstance(parsed, dict) else {"query": str(parsed)}
-        if isinstance(raw_args, dict):
-            return dict(raw_args)
         return {}
 
     def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
-        # Session identity always wins — ignore any user_id the model might invent.
-        if name == "search_policies":
-            query = str(arguments.get("query", "")).strip()
-            logger.info("Running tool search_policies user_id=%s query=%r", self.user_id, query)
-            return search_policies(query, user_id=self.user_id)
-
-        if name == "read_dispute":
-            dispute_id = _optional_str(arguments.get("dispute_id"))
-            query = _optional_str(arguments.get("query"))
-            logger.info(
-                "Running tool read_dispute user_id=%s dispute_id=%r query=%r",
-                self.user_id,
-                dispute_id,
-                query,
-            )
-            return read_dispute(user_id=self.user_id, dispute_id=dispute_id, query=query)
-
-        if name == "get_account":
-            account_id = str(arguments.get("account_id", "")).strip()
-            logger.info("Running tool get_account account_id=%r", account_id)
-            return get_account(account_id)
-
-        if name == "list_payees":
-            account_id = str(arguments.get("account_id", "")).strip()
-            logger.info("Running tool list_payees account_id=%r", account_id)
-            return list_payees(account_id)
-
-        if name == "transfer_funds":
-            from_account = str(arguments.get("from_account", "")).strip()
-            to_account = str(arguments.get("to_account", "")).strip()
-            amount = arguments.get("amount", "")
-            currency = str(arguments.get("currency", "INR")).strip() or "INR"
-            memo = _optional_str(arguments.get("memo"))
-            logger.info(
-                "Running tool transfer_funds from=%r to=%r amount=%r",
-                from_account,
-                to_account,
-                amount,
-            )
-            return transfer_funds(
-                from_account=from_account,
-                to_account=to_account,
-                amount=amount,
-                currency=currency,
-                memo=memo,
-            )
-
-        if name == "issue_refund":
-            dispute_id = str(arguments.get("dispute_id", "")).strip()
-            to_account = str(arguments.get("to_account", "")).strip()
-            amount = arguments.get("amount", "")
-            reason = _optional_str(arguments.get("reason"))
-            logger.info(
-                "Running tool issue_refund dispute=%r to=%r amount=%r",
-                dispute_id,
-                to_account,
-                amount,
-            )
-            return issue_refund(
-                dispute_id=dispute_id,
-                to_account=to_account,
-                amount=amount,
-                reason=reason,
-            )
-
-        logger.warning("Unknown tool requested: %s", name)
-        return f"Unknown tool: {name}"
-
-    def _print_model_response(self, round_index: int, assistant_message: Any) -> None:
-        content = (assistant_message.content or "").strip()
-        tool_calls = assistant_message.tool_calls or []
-        print(f"[bold cyan]Model response (round {round_index})[/bold cyan]")
-        if content:
-            print(content)
-        else:
-            print("[dim]<empty content>[/dim]")
-        if tool_calls:
-            printed_calls = [
-                {
-                    "name": call.function.name,
-                    "arguments": self._parse_tool_arguments(call.function.arguments or {}),
-                }
-                for call in tool_calls
-            ]
-            print("[bold yellow]tool_calls[/bold yellow]", printed_calls)
+        handler = TOOL_HANDLERS.get(name)
+        if handler is None:
+            logger.warning("Unknown tool requested: %s", name)
+            return f"Unknown tool: {name}"
+        # Session identity always wins — never trust a model-supplied user_id.
+        logger.info("Running tool=%s user_id=%s args=%s", name, self.user_id, arguments)
+        return handler(arguments, self.user_id)
 
     def chat(self, message: str) -> ChatResult:
-        logger.info("Starting chat with model=%s user_id=%s", self.model, self.user_id)
+        """Loop: chat(with tools) → execute tool_calls → append tool results → repeat."""
+        logger.info("Starting chat model=%s user_id=%s", self.model, self.user_id)
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": message},
@@ -198,61 +156,54 @@ class BaselineAgent:
         tool_calls: list[ToolCallRecord] = []
 
         for round_index in range(1, self.max_tool_rounds + 1):
-            logger.info("Calling Ollama (round %s/%s)", round_index, self.max_tool_rounds)
             response = self._client.chat(
                 model=self.model,
                 messages=messages,
                 tools=self.tools,
             )
-            assistant_message = response.message
-            self._print_model_response(round_index, assistant_message)
+            assistant = response.message
             messages.append(
                 {
                     "role": "assistant",
-                    "content": assistant_message.content or "",
-                    "tool_calls": assistant_message.tool_calls,
+                    "content": assistant.content or "",
+                    "tool_calls": assistant.tool_calls,
                 }
             )
 
-            if not assistant_message.tool_calls:
-                reply = (assistant_message.content or "").strip() or "No response generated."
-                logger.info("Chat completed without further tool calls")
+            if not assistant.tool_calls:
+                reply = (assistant.content or "").strip() or "No response generated."
+                logger.info("Chat done after %s round(s), %s tool call(s)", round_index, len(tool_calls))
                 return ChatResult(
                     reply=reply,
                     model=self.model,
                     available_tools=self.available_tool_names,
                     user_id=self.user_id,
                     tool_calls=tool_calls,
-                    blocked=False,
                 )
 
-            for tool_call in assistant_message.tool_calls:
-                name = tool_call.function.name
-                arguments = self._parse_tool_arguments(tool_call.function.arguments or {})
-                logger.info("Model requested tool=%s args=%s", name, arguments)
-                raw_result = self._run_tool(name, arguments)
+            for call in assistant.tool_calls:
+                name = call.function.name
+                arguments = self._parse_args(call.function.arguments or {})
+                output = self._run_tool(name, arguments)
                 tool_calls.append(
-                    ToolCallRecord(round=round_index, name=name, arguments=arguments, output=raw_result)
+                    ToolCallRecord(round=round_index, name=name, arguments=arguments, output=output)
                 )
-                messages.append({"role": "tool", "tool_name": name, "content": raw_result})
+                messages.append({"role": "tool", "tool_name": name, "content": output})
 
-        logger.warning("Reached max tool rounds (%s); asking for a final answer", self.max_tool_rounds)
+        logger.warning("Hit max tool rounds (%s); requesting final answer", self.max_tool_rounds)
         final = self._client.chat(model=self.model, messages=messages)
-        self._print_model_response(self.max_tool_rounds + 1, final.message)
         reply = (final.message.content or "").strip() or "No response generated."
-        logger.info("Chat completed after max tool rounds")
         return ChatResult(
             reply=reply,
             model=self.model,
             available_tools=self.available_tool_names,
             user_id=self.user_id,
             tool_calls=tool_calls,
-            blocked=False,
         )
 
 
 def run_chat(message: str, *, model: str = OLLAMA_MODEL, user_id: str = DEFAULT_USER_ID) -> ChatResult:
-    """API-facing entrypoint: S1 user-input gate, then the BankOps agent."""
+    """CLI/eval entry: S1 gate then baseline agent (same path as POST /chat)."""
     from app.agent.chat_helper import handle_chat
 
     return handle_chat(message, model=model, user_id=user_id)

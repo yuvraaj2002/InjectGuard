@@ -38,8 +38,10 @@ BankOps = a **tool-calling banking ops agent** that is intentionally vulnerable 
 
 ## Tool-calling agents
 
+- Loop in `BaselineAgent.chat`: Ollama gets tool schemas → model may emit `tool_calls` → app runs handlers → append `role=tool` results → call model again until a plain reply (or max rounds).
 - The model only *proposes* tools; **your code** executes them and feeds results back into context.
 - That re-entry is why agents are riskier than Q&A RAG: untrusted tool output can be treated like instructions.
+- Today: S1 only on the **user message**; retrieved policy / dispute / tool text is still trusted by the model once tools run.
 - Keyword RAG is enough here — the lesson is *after retrieval*, not retrieval quality.
 
 ---

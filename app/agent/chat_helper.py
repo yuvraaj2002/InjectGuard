@@ -36,18 +36,20 @@ def handle_chat(
                 verdict.reason,
                 verdict.model,
             )
-            agent = BaselineAgent(model=model, user_id=resolved_user_id)
+            from app.agent.baseline import TOOL_SCHEMAS
+
             return ChatResult(
                 reply=(
                     "Request blocked: the message looks like a prompt injection/jailbreak "
                     f"({verdict.reason})."
                 ),
                 model=model,
-                available_tools=agent.available_tool_names,
+                available_tools=[tool["function"]["name"] for tool in TOOL_SCHEMAS],
                 user_id=resolved_user_id,
                 blocked=True,
             )
 
+        # S1 allowed → tool-calling loop (model proposes → app executes → results re-enter)
         return BaselineAgent(model=model, user_id=resolved_user_id).chat(message)
     finally:
         if owns_container:
