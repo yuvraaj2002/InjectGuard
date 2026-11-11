@@ -34,10 +34,26 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 8px;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--muted);
+}
+
+.theme-toggle {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
 }
 
 .meta .ok {
@@ -125,7 +141,7 @@
   min-height: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.65);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -190,17 +206,17 @@
 
 .msg.user {
   align-self: flex-end;
-  background: #0f2a3a;
-  color: #eef5f7;
+  background: var(--bubble-user);
+  color: var(--bubble-user-ink);
 }
 
 .msg.user header {
-  color: rgba(238, 245, 247, 0.6);
+  color: color-mix(in srgb, var(--bubble-user-ink) 62%, transparent);
 }
 
 .msg.assistant {
   align-self: flex-start;
-  background: #fff;
+  background: var(--surface-solid);
   border: 1px solid var(--line);
 }
 
@@ -234,7 +250,7 @@
   gap: 10px;
   padding: 14px;
   border-top: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--surface);
 }
 
 .composer textarea {
@@ -247,7 +263,7 @@
   font-size: 0.95rem;
   line-height: 1.4;
   color: var(--ink);
-  background: #fff;
+  background: var(--surface-solid);
   outline: none;
 }
 
@@ -260,8 +276,8 @@
   border: none;
   border-radius: 10px;
   padding: 0 18px;
-  background: #0f2a3a;
-  color: #eef5f7;
+  background: var(--bubble-user);
+  color: var(--bubble-user-ink);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -328,7 +344,7 @@
 .arch-return {
   position: relative;
   margin: 22px 0 22px 0;
-  border: 1px solid rgba(15, 42, 58, 0.35);
+  border: 1px solid var(--line-strong);
   border-left: none;
   border-radius: 0 16px 16px 0;
 }
@@ -341,7 +357,7 @@
   font-family: var(--font-mono);
   font-size: 0.95rem;
   line-height: 1;
-  color: #0f2a3a;
+  color: var(--ink);
 }
 
 .arch-return span {
@@ -375,7 +391,7 @@
 .arch-exit-line {
   width: 1px;
   height: 28px;
-  background: rgba(18, 22, 28, 0.18);
+  background: var(--line-strong);
   justify-self: center;
 }
 
@@ -384,13 +400,13 @@
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--surface);
 }
 
 .arch-node.model {
-  border-color: #0f2a3a;
-  background: #0f2a3a;
-  color: #eef5f7;
+  border-color: var(--bubble-user);
+  background: var(--bubble-user);
+  color: var(--bubble-user-ink);
 }
 
 .arch-node.gate {
@@ -411,7 +427,7 @@
 .arch-node.model.hot-allow,
 .arch-node.model.hot-block {
   box-shadow: none;
-  color: #eef5f7;
+  color: var(--bubble-user-ink);
 }
 
 .arch-kicker {
@@ -426,7 +442,7 @@
 
 .arch-node.model .arch-kicker,
 .arch-node.model em {
-  color: rgba(238, 245, 247, 0.65);
+  color: color-mix(in srgb, var(--bubble-user-ink) 68%, transparent);
 }
 
 .arch-node strong {
@@ -459,7 +475,7 @@
   display: block;
   width: 1px;
   height: 10px;
-  background: var(--line-strong, rgba(18, 22, 28, 0.18));
+  background: var(--line-strong);
 }
 
 .arch-chevron {
@@ -500,7 +516,7 @@
 }
 
 .model-swatch {
-  background: #0f2a3a;
+  background: var(--bubble-user);
 }
 
 .drop-swatch {

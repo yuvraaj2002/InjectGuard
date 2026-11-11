@@ -82,7 +82,7 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 ## S2 — Isolation (Regime A pattern)
 
 - **S1:** “Is this text evil?” **S2:** “Even if poison arrives, can it choose what we do?”
-- Pattern: privileged planner → code executor → optional Q-LLM (schema-only facts).
+- Pattern: privileged planner → code executor → Q-LLM. The Q-LLM (`quarantined_llm_inference.py`) reads untrusted text with **no tools** and must return JSON for a caller-supplied Pydantic model or JSON schema. Not on the chat path yet.
 - Direct user malice still needs S1 + S3; S2 mainly targets *indirect* steering.
 
 ---

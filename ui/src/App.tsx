@@ -28,7 +28,22 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const [lastResult, setLastResult] = useState<ChatResponse | null>(null)
+  const [theme, setTheme] = useState<'light' | 'night'>('light')
   const threadRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('injectguard-theme')
+    const next = saved === 'night' ? 'night' : 'light'
+    setTheme(next)
+    document.documentElement.dataset.theme = next === 'night' ? 'night' : 'light'
+  }, [])
+
+  function toggleTheme() {
+    const next = theme === 'night' ? 'light' : 'night'
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    window.localStorage.setItem('injectguard-theme', next)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +123,9 @@ function App() {
           <p>BankOps lab — S1 on input, then tool-calling agent.</p>
         </div>
         <div className="meta">
+          <button type="button" className="theme-toggle" onClick={toggleTheme}>
+            {theme === 'night' ? 'Light' : 'Night'}
+          </button>
           <span className={healthy ? 'ok' : healthy === false ? 'bad' : ''}>
             {healthy === null ? '…' : healthy ? 'online' : 'offline'}
           </span>
