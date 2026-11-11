@@ -36,7 +36,7 @@ function App() {
         setHealthy(ok)
         setTools(toolsResponse.tools)
         setModel(toolsResponse.model)
-        setDecisionModel(toolsResponse.decision_model || 'tev1:0.8b')
+        setDecisionModel(toolsResponse.decision_model || 'deberta-v3-base-prompt-injection-v2')
         setGuardLayers(toolsResponse.guard_layers || [])
       } catch (err) {
         if (cancelled) return

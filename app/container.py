@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from defenses.s1_detection.decision_model_inference import DecisionModel
+from defenses.s1_detection.input_classifier_inference import InputClassifier
 from defenses.s2_isolation.planner import PlannerLLM
 
 logger = logging.getLogger(__name__)
@@ -16,26 +16,25 @@ class AppContainer:
     """Holds long-lived services shared across a single API process.
 
     Build at server startup. Hand the same object into routers/helpers so they
-    reuse ``container.decision_model`` / ``container.planner`` instead of
+    reuse ``container.input_classifier`` / ``container.planner`` instead of
     constructing clients per request.
     """
 
-    decision_model: DecisionModel
+    input_classifier: InputClassifier
     planner: PlannerLLM
 
     @classmethod
     def build(cls) -> AppContainer:
-        decision_model = DecisionModel()
-        decision_model.open()
+        input_classifier = InputClassifier()
+        input_classifier.open()
         planner = PlannerLLM()
         logger.info(
-            "AppContainer ready decision_model=%s planner=%s threshold=%.3f",
-            decision_model.model,
+            "AppContainer ready input_classifier=%s planner=%s",
+            input_classifier.model,
             planner.model,
-            decision_model.threshold,
         )
-        return cls(decision_model=decision_model, planner=planner)
+        return cls(input_classifier=input_classifier, planner=planner)
 
     def close(self) -> None:
-        self.decision_model.close()
+        self.input_classifier.close()
         logger.info("AppContainer closed")

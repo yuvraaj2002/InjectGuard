@@ -15,11 +15,16 @@ DEFAULT_USER_ID = "op-001"
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "lfm2.5-thinking:latest"
 
-# S1 decision / guard model (Ollama System One)
+# S1 input classifier — ProtectAI DeBERTa prompt-injection detector (local encoder, not an LLM).
+# Ungated on Hugging Face (Apache-2.0). Labels: SAFE / INJECTION. Top label decides; score is logged only.
+# (Meta Llama Prompt Guard 2 is similar but gated — swap the id if/when HF access is approved.)
+INPUT_CLASSIFIER_MODEL = "protectai/deberta-v3-base-prompt-injection-v2"
+INPUT_CLASSIFIER_MAX_LENGTH = 512
+
+# Legacy S1 decision LLM (Ollama System One) — kept in decision_model_inference.py for ablation.
 DECISION_MODEL = "tev1:0.8b"
 DECISION_MODEL_TIMEOUT_S = 30.0
-# noul >= threshold ⇒ treat as prompt injection / jailbreak
-INJECTION_THRESHOLD = 0.45
+INJECTION_THRESHOLD = 0.45  # only used by DecisionModel (System One noul)
 
 # S1 toggles — start with user-message gate only; enable later stages after that lands.
 GUARD_INPUT = True

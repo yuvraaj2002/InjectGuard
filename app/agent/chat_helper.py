@@ -7,7 +7,7 @@ import logging
 import ollama
 
 from app.agent.baseline import ChatResult, ToolCallRecord
-from app.config import DEFAULT_USER_ID, INJECTION_THRESHOLD, OLLAMA_HOST, OLLAMA_MODEL
+from app.config import DEFAULT_USER_ID, GUARD_INPUT, OLLAMA_HOST, OLLAMA_MODEL
 from app.container import AppContainer
 from defenses.s2_isolation.executor import PlanExecutor
 from defenses.s2_isolation.planner import plan_to_dict
@@ -48,25 +48,26 @@ def handle_chat(
     services = container or AppContainer.build()
 
     try:
-        # --- S1: user-message decision gate ---
-        verdict = services.decision_model.score(message, source="user_input")
-        if verdict.injection and verdict.confidence >= INJECTION_THRESHOLD:
-            logger.warning(
-                "Rejected user message confidence=%.3f threshold=%.3f reason=%s",
-                verdict.confidence,
-                INJECTION_THRESHOLD,
-                verdict.reason,
-            )
-            return ChatResult(
-                reply=(
-                    "Request blocked: the message looks like a prompt injection/jailbreak "
-                    f"({verdict.reason})."
-                ),
-                model=model,
-                available_tools=list(BANKOPS_TOOL_NAMES),
-                user_id=resolved_user_id,
-                blocked=True,
-            )
+        # --- S1: user-message input classifier (Prompt Guard) ---
+        if GUARD_INPUT:
+            verdict = services.input_classifier.score(message, source="user_input")
+            if verdict.injection:
+                logger.warning(
+                    "Rejected user message score=%.3f reason=%s model=%s",
+                    verdict.confidence,
+                    verdict.reason,
+                    verdict.model,
+                )
+                return ChatResult(
+                    reply=(
+                        "Request blocked: the message looks like a prompt injection/jailbreak "
+                        f"({verdict.reason})."
+                    ),
+                    model=model,
+                    available_tools=list(BANKOPS_TOOL_NAMES),
+                    user_id=resolved_user_id,
+                    blocked=True,
+                )
 
         # --- S2: privileged planner (schemas + user text only; no tool execution) ---
         planner_result = services.planner.plan(message)

@@ -29,8 +29,10 @@ After any of these, **read this skill and update `learning.md` without waiting t
 ## Before writing
 
 1. Read `learning.md` (and skim `PRD.md` § learning objectives if unsure what matters).
-2. Deduplicate: extend an existing section if the topic already exists; do not repeat the same point.
+2. Deduplicate: extend an existing **thematic** section if the topic already exists; do not add a new dated diary entry for the same idea.
 3. Prefer **one sharp entry** over many tiny ones.
+4. If `learning.md` is drifting into a changelog (“what we built” per commit), **merge into concept sections** instead of appending. Drop OpsPilot/email leftovers; keep BankOps + interview angles.
+5. Target a lean file (~one screen of core concepts + a few interview prompts). Link to `PRD.md` / code for implementation detail.
 
 ## Entry format
 

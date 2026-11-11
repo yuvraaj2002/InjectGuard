@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.agent.baseline import BaselineAgent
 from app.agent.chat_helper import handle_chat
 from app.config import (
-    DECISION_MODEL,
     DEFAULT_USER_ID,
     GUARD_INPUT,
     GUARD_RETRIEVED_CONTEXT,
     GUARD_TOOL_OUTPUT,
+    INPUT_CLASSIFIER_MODEL,
     OLLAMA_MODEL,
 )
 from app.container import AppContainer
@@ -35,19 +35,19 @@ def _guard_layers() -> list[GuardLayerInfo]:
             id="user_input",
             label="User input",
             enabled=GUARD_INPUT,
-            description="Decision model scores the user message before the agent runs.",
+            description="Prompt Guard scores the user message before the agent runs.",
         ),
         GuardLayerInfo(
             id="retrieved_context",
             label="Retrieved context",
             enabled=GUARD_RETRIEVED_CONTEXT,
-            description="Scores search_policies / read_dispute / get_account / list_payees text before it enters context.",
+            description="Scores search_policies / read_dispute / get_account / list_payees text before it enters context (not wired yet).",
         ),
         GuardLayerInfo(
             id="tool_output",
             label="Tool output",
             enabled=GUARD_TOOL_OUTPUT,
-            description="Scores other tool results (e.g. transfer_funds / issue_refund confirmations) before re-entry.",
+            description="Scores other tool results (e.g. transfer_funds / issue_refund confirmations) before re-entry (not wired yet).",
         ),
     ]
 
@@ -66,7 +66,7 @@ def list_tools() -> ToolsResponse:
     return ToolsResponse(
         model=OLLAMA_MODEL,
         tools=tools,
-        decision_model=DECISION_MODEL,
+        decision_model=INPUT_CLASSIFIER_MODEL,
         guard_layers=_guard_layers(),
     )
 
