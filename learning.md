@@ -100,8 +100,8 @@ Interview line: *Reads bring poison in; writes let poison out. Detection helps r
 
 ## App wiring (short)
 
-- **Chat helper:** Prompt Guard scores user message → continue or refuse (before planner).
-- **AppContainer:** load classifier + planner once at FastAPI lifespan; inject into handlers. Process-scoped services ≠ request-scoped `user_id`.
+- **Chat helper (current):** S1 classifier on user message → baseline tool-calling agent (S2 plan-then-execute not on this path yet).
+- **AppContainer:** load classifier once at FastAPI lifespan; inject into handlers. Process-scoped services ≠ request-scoped `user_id`.
 - Classifier weights download from Hugging Face on first `open()` (ProtectAI model is ungated).
 
 ---

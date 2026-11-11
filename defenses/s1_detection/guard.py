@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-from app.config import GUARD_CONTENT_ACTION, GUARD_INPUT, GUARD_RETRIEVED_CONTEXT, GUARD_TOOL_OUTPUT
+from app.config import GUARD_CONTENT_ACTION, GUARD_RETRIEVED_CONTEXT, GUARD_TOOL_OUTPUT
 from defenses.s1_detection.decision_model_inference import Verdict
 
 logger = logging.getLogger(__name__)
@@ -43,13 +43,11 @@ class ContentGuard:
         self,
         *,
         classifier: TextScorer,
-        guard_input: bool = GUARD_INPUT,
         guard_retrieved_context: bool = GUARD_RETRIEVED_CONTEXT,
         guard_tool_output: bool = GUARD_TOOL_OUTPUT,
         content_action: str = GUARD_CONTENT_ACTION,
     ) -> None:
         self.classifier = classifier
-        self.guard_input = guard_input
         self.guard_retrieved_context = guard_retrieved_context
         self.guard_tool_output = guard_tool_output
         self.content_action = content_action.strip().lower()
@@ -60,9 +58,6 @@ class ContentGuard:
 
     def check_user_input(self, text: str) -> tuple[str | None, GuardEvent | None]:
         """Return (blocked_reply, event). blocked_reply is set when input is blocked."""
-        if not self.guard_input:
-            return None, None
-
         verdict = self.classifier.score(text, source="user_input")
         if not verdict.injection:
             return None, GuardEvent(

@@ -47,7 +47,13 @@ class InputClassifier:
         import torch
         from transformers import pipeline
 
-        device = _pick_device(torch)
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device: int | str = "mps"
+        elif torch.cuda.is_available():
+            device = 0
+        else:
+            device = -1  # transformers convention: -1 = CPU
+
         logger.info("Loading input classifier model=%s device=%s", self.model, device)
         self._pipeline = pipeline(
             "text-classification",
@@ -93,7 +99,12 @@ class InputClassifier:
             )
 
         latency_ms = (time.perf_counter() - started) * 1000
-        label, pipeline_score = _top_prediction(raw)
+        # Default pipeline output for one string: [{"label": "...", "score": ...}]
+        row = raw[0] if isinstance(raw, list) else raw
+        if isinstance(row, list):
+            row = row[0]
+        label = str(row.get("label") or "").upper()
+        pipeline_score = float(row.get("score") or 0.0)
         injection = label in _MALICIOUS_LABELS
         reason = f"label={label} score={pipeline_score:.3f}"
         logger.info(
@@ -112,26 +123,6 @@ class InputClassifier:
             source=source,
             latency_ms=latency_ms,
         )
-
-
-def _pick_device(torch: Any) -> int | str:
-    """Prefer Apple MPS, then CUDA, else CPU. pipeline accepts cuda ordinal or device str."""
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        return "mps"
-    if torch.cuda.is_available():
-        return 0
-    return -1  # transformers convention: -1 = CPU
-
-
-def _top_prediction(raw: Any) -> tuple[str, float]:
-    """Parse default pipeline output → (label, score)."""
-    # Single string → [{"label": "...", "score": ...}]
-    row = raw[0] if isinstance(raw, list) else raw
-    if isinstance(row, list):
-        row = row[0]
-    label = str(row.get("label") or "").upper()
-    score = float(row.get("score") or 0.0)
-    return label, score
 
 
 if __name__ == "__main__":

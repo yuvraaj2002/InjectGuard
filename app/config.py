@@ -26,8 +26,7 @@ DECISION_MODEL = "tev1:0.8b"
 DECISION_MODEL_TIMEOUT_S = 30.0
 INJECTION_THRESHOLD = 0.45  # only used by DecisionModel (System One noul)
 
-# S1 toggles — start with user-message gate only; enable later stages after that lands.
-GUARD_INPUT = True
+# S1 toggles — user-message gate is always on; enable later stages after that lands.
 GUARD_RETRIEVED_CONTEXT = False  # TODO: score search_policies / read_dispute / … before re-entry
 GUARD_TOOL_OUTPUT = False  # TODO: score transfer/refund confirmations before re-entry
 # When retrieved/tool content is flagged: "drop" (replace) or "flag" (log only)

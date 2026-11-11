@@ -6,7 +6,6 @@ from app.agent.baseline import BaselineAgent
 from app.agent.chat_helper import handle_chat
 from app.config import (
     DEFAULT_USER_ID,
-    GUARD_INPUT,
     GUARD_RETRIEVED_CONTEXT,
     GUARD_TOOL_OUTPUT,
     INPUT_CLASSIFIER_MODEL,
@@ -34,8 +33,8 @@ def _guard_layers() -> list[GuardLayerInfo]:
         GuardLayerInfo(
             id="user_input",
             label="User input",
-            enabled=GUARD_INPUT,
-            description="Prompt Guard scores the user message before the agent runs.",
+            enabled=True,
+            description="Input classifier scores the user message before the agent runs.",
         ),
         GuardLayerInfo(
             id="retrieved_context",
