@@ -1,11 +1,11 @@
 """Local prompt-injection classifier: text → label + score → block/allow.
 
-Default model: ProtectAI ``deberta-v3-base-prompt-injection-v2`` (ungated DeBERTa
-encoder via Hugging Face Transformers). Deterministic and fast compared to the
-Ollama System One decision LLM in ``decision_model_inference.py``.
+Default model: Meta ``Llama-Prompt-Guard-2-86M`` (mDeBERTa encoder via Hugging
+Face Transformers). Deterministic and fast compared to the Ollama System One
+decision LLM in ``decision_model_inference.py``.
 
 v1: use the pipeline's top ``label`` + ``score`` only — no threshold tuning.
-``INJECTION`` / ``MALICIOUS`` / ``LABEL_1`` ⇒ block; otherwise allow. Retrieved
+``MALICIOUS`` / ``LABEL_1`` / ``INJECTION`` ⇒ block; otherwise allow. Retrieved
 context / tool outputs can reuse ``score()`` later.
 """
 
@@ -16,13 +16,13 @@ import time
 from typing import Any, Literal
 
 from app.config import INPUT_CLASSIFIER_MAX_LENGTH, INPUT_CLASSIFIER_MODEL
-from defenses.s1_detection.decision_model_inference import Verdict
+from app.guardrails.s1_detection.decision_model_inference import Verdict
 
 logger = logging.getLogger(__name__)
 SourceKind = Literal["user_input", "retrieved_context", "tool_output", "unknown"]
 
-# ProtectAI: SAFE / INJECTION. Prompt Guard 2: BENIGN / MALICIOUS (or LABEL_0 / LABEL_1).
-_MALICIOUS_LABELS = frozenset({"INJECTION", "MALICIOUS", "LABEL_1", "JAILBREAK"})
+# Prompt Guard 2: BENIGN / MALICIOUS (or LABEL_0 / LABEL_1). ProtectAI used SAFE / INJECTION.
+_MALICIOUS_LABELS = frozenset({"MALICIOUS", "LABEL_1", "INJECTION", "JAILBREAK"})
 
 
 class InputClassifier:

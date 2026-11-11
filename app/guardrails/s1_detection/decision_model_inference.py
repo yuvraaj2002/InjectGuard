@@ -10,7 +10,7 @@ from typing import Literal
 import httpx
 
 from app.config import DECISION_MODEL, DECISION_MODEL_TIMEOUT_S, INJECTION_THRESHOLD, OLLAMA_HOST
-from defenses.s1_detection.prompt import (
+from app.guardrails.s1_detection.prompt import (
     INJECTION_CRITERIA,
     INJECTION_INSTRUCTIONS,
     INJECTION_QUESTION_KEY,

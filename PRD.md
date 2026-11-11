@@ -285,7 +285,7 @@ flowchart LR
 **Problem addressed:** P5  
 Score untrusted text before it enters context. Block bad operator input; drop/flag poisoned retrieval/tool text.
 
-- Primary backend: Ollama System One (`noul`) via `defenses/s1_detection/`.
+- Primary backend: Meta Llama Prompt Guard 2 via `app/guardrails/s1_detection/` (legacy System One kept for ablation).
 - Not the only defense — probabilistic and bypassable.
 
 ### S2 — Architectural isolation (Plan-Then-Execute)
@@ -360,11 +360,11 @@ Buffer: cut C8 / Promptfoo before cutting a defense layer.
 InjectGuard/
 ├── PRD.md                 # this document
 ├── learning.md            # interview study log
-├── app/                   # FastAPI, agent, tools, config
-├── defenses/
-│   ├── s1_detection/      # decision model + ContentGuard
-│   ├── s2_isolation/      # planner, quarantine, executor (+ taint later)
-│   └── s3_actions/        # policy, HITL, filters (upcoming)
+├── app/                   # FastAPI, agent, tools, config, guardrails
+│   └── guardrails/
+│       ├── s1_detection/  # Prompt Guard classifier + ContentGuard
+│       ├── s2_isolation/  # planner, quarantine, executor (+ taint later)
+│       └── s3_actions/    # policy, HITL, filters (upcoming)
 ├── data/
 │   ├── synthetic/         # SOPs, disputes, accounts, payees
 │   └── attacks/           # dataset.yaml (benign + attack cases)

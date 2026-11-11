@@ -36,7 +36,7 @@ function App() {
         setHealthy(ok)
         setTools(toolsResponse.tools)
         setModel(toolsResponse.model)
-        setDecisionModel(toolsResponse.decision_model || 'deberta-v3-base-prompt-injection-v2')
+        setDecisionModel(toolsResponse.decision_model || 'Llama-Prompt-Guard-2-86M')
         setGuardLayers(toolsResponse.guard_layers || [])
       } catch (err) {
         if (cancelled) return

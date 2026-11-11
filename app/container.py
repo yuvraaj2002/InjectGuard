@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from defenses.s1_detection.input_classifier_inference import InputClassifier
+from app.guardrails.s1_detection.input_classifier_inference import InputClassifier
 
 logger = logging.getLogger(__name__)
 

@@ -15,10 +15,10 @@ DEFAULT_USER_ID = "op-001"
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "lfm2.5-thinking:latest"
 
-# S1 input classifier — ProtectAI DeBERTa prompt-injection detector (local encoder, not an LLM).
-# Ungated on Hugging Face (Apache-2.0). Labels: SAFE / INJECTION. Top label decides; score is logged only.
-# (Meta Llama Prompt Guard 2 is similar but gated — swap the id if/when HF access is approved.)
-INPUT_CLASSIFIER_MODEL = "protectai/deberta-v3-base-prompt-injection-v2"
+# S1 input classifier — Meta Llama Prompt Guard 2 (local mDeBERTa encoder, not an LLM).
+# HF-gated: accept the model license, then `huggingface-cli login` (or set HF_TOKEN).
+# Labels: BENIGN / MALICIOUS (or LABEL_0 / LABEL_1). Top label decides; score is logged only.
+INPUT_CLASSIFIER_MODEL = "meta-llama/Llama-Prompt-Guard-2-86M"
 INPUT_CLASSIFIER_MAX_LENGTH = 512
 
 # Legacy S1 decision LLM (Ollama System One) — kept in decision_model_inference.py for ablation.

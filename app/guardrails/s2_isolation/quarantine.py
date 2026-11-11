@@ -10,9 +10,9 @@ import ollama
 from pydantic import ValidationError
 
 from app.config import OLLAMA_HOST, OLLAMA_MODEL, QUARANTINE_MAX_INPUT_CHARS, QUARANTINE_MODEL
-from defenses.s2_isolation.planner import extract_json_object
-from defenses.s2_isolation.prompt import QUARANTINE_SYSTEM_PROMPT, build_quarantine_user_message
-from defenses.s2_isolation.schema import ExtractedContent
+from app.guardrails.s2_isolation.planner import extract_json_object
+from app.guardrails.s2_isolation.prompt import QUARANTINE_SYSTEM_PROMPT, build_quarantine_user_message
+from app.guardrails.s2_isolation.schema import ExtractedContent
 
 logger = logging.getLogger(__name__)
 

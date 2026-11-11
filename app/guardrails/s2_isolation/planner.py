@@ -18,8 +18,8 @@ from app.tools.list_payees import LIST_PAYEES_TOOL
 from app.tools.read_dispute import READ_DISPUTE_TOOL
 from app.tools.search_policies import SEARCH_POLICIES_TOOL
 from app.tools.transfer_funds import TRANSFER_FUNDS_TOOL
-from defenses.s2_isolation.prompt import PLANNER_SYSTEM_PROMPT, build_planner_user_message, format_tool_catalog
-from defenses.s2_isolation.schema import ALLOWED_TOOLS, SENSITIVE_PARAMS, AgentPlan, is_variable_ref
+from app.guardrails.s2_isolation.prompt import PLANNER_SYSTEM_PROMPT, build_planner_user_message, format_tool_catalog
+from app.guardrails.s2_isolation.schema import ALLOWED_TOOLS, SENSITIVE_PARAMS, AgentPlan, is_variable_ref
 
 logger = logging.getLogger(__name__)
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)

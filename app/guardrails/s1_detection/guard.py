@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from app.config import GUARD_CONTENT_ACTION, GUARD_RETRIEVED_CONTEXT, GUARD_TOOL_OUTPUT
-from defenses.s1_detection.decision_model_inference import Verdict
+from app.guardrails.s1_detection.decision_model_inference import Verdict
 
 logger = logging.getLogger(__name__)
 RETRIEVAL_TOOLS = frozenset(

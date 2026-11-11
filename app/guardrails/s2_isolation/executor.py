@@ -17,7 +17,7 @@ from app.tools.list_payees import list_payees
 from app.tools.read_dispute import read_dispute
 from app.tools.search_policies import search_policies
 from app.tools.transfer_funds import transfer_funds
-from defenses.s2_isolation.schema import ALLOWED_TOOLS, AgentPlan, PlanStep, is_variable_ref
+from app.guardrails.s2_isolation.schema import ALLOWED_TOOLS, AgentPlan, PlanStep, is_variable_ref
 
 logger = logging.getLogger(__name__)
 
