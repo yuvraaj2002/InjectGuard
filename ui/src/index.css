@@ -1,30 +1,18 @@
 :root {
-  --bg-0: #e8edf2;
-  --bg-1: #f4f7fa;
-  --surface: rgba(255, 255, 255, 0.78);
-  --surface-solid: #ffffff;
+  --bg-0: #e8eef1;
   --ink: #12161c;
   --ink-soft: #2a3340;
   --muted: #5b6778;
   --line: rgba(18, 22, 28, 0.1);
-  --line-strong: rgba(18, 22, 28, 0.18);
   --accent: #0b7f8a;
   --accent-deep: #066069;
   --accent-soft: rgba(11, 127, 138, 0.12);
-  --signal: #c45c16;
-  --signal-soft: rgba(196, 92, 22, 0.12);
   --danger: #b42318;
   --danger-soft: rgba(180, 35, 24, 0.1);
   --ok: #1b7a4a;
-  --ok-soft: rgba(27, 122, 74, 0.12);
-  --shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset,
-    0 12px 40px rgba(18, 28, 40, 0.08);
-  --radius: 14px;
-  --radius-sm: 10px;
   --font-display: "Syne", "Avenir Next", sans-serif;
   --font-sans: "Manrope", "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
-  --grid: rgba(18, 22, 28, 0.045);
 }
 
 * {
@@ -39,33 +27,15 @@ body,
 
 body {
   margin: 0;
-  color: var(--ink);
   font-family: var(--font-sans);
-  background-color: var(--bg-0);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(11, 127, 138, 0.16), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(196, 92, 22, 0.08), transparent 45%),
-    linear-gradient(var(--grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
-    linear-gradient(180deg, var(--bg-1), var(--bg-0));
-  background-size: auto, auto, 28px 28px, 28px 28px, auto;
-  background-attachment: fixed;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(11, 127, 138, 0.08), transparent 50%),
+    linear-gradient(180deg, #f3f6f8 0%, var(--bg-0) 100%);
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
-textarea,
-input {
+textarea {
   font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-::selection {
-  background: rgba(11, 127, 138, 0.22);
-}
-
-a {
-  color: inherit;
 }
