@@ -82,8 +82,10 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 ## S2 — Isolation (Regime A pattern)
 
 - **S1:** “Is this text evil?” **S2:** “Even if poison arrives, can it choose what we do?”
-- Pattern: privileged planner → code executor → Q-LLM. The Q-LLM (`quarantined_llm_inference.py`) reads untrusted text with **no tools** and must return JSON for a caller-supplied Pydantic model or JSON schema. Not on the chat path yet.
-- Direct user malice still needs S1 + S3; S2 mainly targets *indirect* steering.
+- Pattern (CaMeL-style split, not on the chat path yet): **P-LLM** → code executor → **Q-LLM**.
+- **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. No tools are passed, so it cannot execute them and it never sees tool output. A value it does not already have is a `$placeholder` for the Q-LLM, not a guessed literal.
+- **Quarantined LLM** (`quarantined_llm_inference.py`): untrusted text, **no tools**, JSON for a caller-supplied Pydantic model or JSON schema.
+- CaMeL blocks *indirect* steering (poison in retrieved/tool text cannot pick the next tool). A jailbreak in the **user message** can still steer the P-LLM. Writes still need S3.
 
 ---
 
