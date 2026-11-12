@@ -119,5 +119,6 @@ def chat(
             for event in result.guard_events
         ],
         plan=result.plan,
+        facts=result.facts,
         blocked=result.blocked,
     )

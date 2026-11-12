@@ -44,6 +44,7 @@ export type ChatResponse = {
   tool_calls: ToolCallTrace[]
   guard_events: GuardEventTrace[]
   plan?: AgentPlanView | null
+  facts?: Record<string, unknown>[]
   blocked: boolean
 }
 

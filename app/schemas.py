@@ -51,11 +51,12 @@ class GuardEventTrace(BaseModel):
 
 class ChatResponse(BaseModel):
     message: str
-    reply: str
+    reply: str = Field(description="Final operator-facing reply from the answer model.")
     model: str
     user_id: str = "op-001"
     available_tools: list[str]
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
     guard_events: list[GuardEventTrace] = Field(default_factory=list)
     plan: dict[str, Any] | None = None
+    facts: list[dict[str, Any]] = Field(default_factory=list)
     blocked: bool = False

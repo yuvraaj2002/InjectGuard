@@ -1,14 +1,18 @@
-"""POST /chat helper: S1 user gate → privileged LLM plan. Plan is not executed."""
+"""POST /chat helper: S1 gate → privileged plan → executor → answer from facts."""
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-from app.agent.baseline import TOOL_SCHEMAS, ChatResult
+from app.agent.baseline import TOOL_SCHEMAS, ChatResult, ToolCallRecord
 from app.config import DEFAULT_USER_ID, OLLAMA_MODEL
 from app.container import AppContainer
 from app.guardrails.s1_detection.guard import ContentGuard
+from app.guardrails.s2_isolation.answer_llm_inference import AnswerLLM
+from app.guardrails.s2_isolation.executor import ExecutionResult, PlanExecutor
 from app.guardrails.s2_isolation.privileged_llm_inference import PrivilegedLLM, PrivilegedPlanResult
+from app.guardrails.s2_isolation.quarantined_llm_inference import QuarantinedLLM
 from app.guardrails.s2_isolation.schema import AgentPlan
 
 logger = logging.getLogger(__name__)
@@ -21,7 +25,7 @@ def handle_chat(
     model: str = OLLAMA_MODEL,
     container: AppContainer | None = None,
 ) -> ChatResult:
-    """S1 on the user message, then a privileged LLM plan. Tools are not run."""
+    """S1 on the user message, then plan, execute, and answer from structured facts."""
     resolved_user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
     owns_container = container is None
     services = container or AppContainer.build()
@@ -51,13 +55,41 @@ def handle_chat(
             len(planned.plan.steps) if planned.plan else 0,
             planned.errors,
         )
+        if planned.plan is None or not planned.valid or not planned.plan.steps:
+            return ChatResult(
+                reply=_format_plan_reply(planned),
+                model=planned.model,
+                available_tools=[tool["function"]["name"] for tool in TOOL_SCHEMAS],
+                user_id=resolved_user_id,
+                guard_events=[input_event] if input_event is not None else [],
+                plan=_plan_payload(planned),
+            )
+
+        outcome = PlanExecutor(
+            user_id=resolved_user_id,
+            quarantined=QuarantinedLLM(model=model),
+            content_guard=guard,
+        ).execute(planned.plan)
+        facts = _fact_trace(outcome)
+        guard_events = [input_event] if input_event is not None else []
+        guard_events.extend(outcome.guard_events)
+        reply = (
+            AnswerLLM(model=model).answer(message, facts)
+            if outcome.ok
+            else _stopped_reply(outcome)
+        )
         return ChatResult(
-            reply=_format_plan_reply(planned),
+            reply=reply,
             model=planned.model,
             available_tools=[tool["function"]["name"] for tool in TOOL_SCHEMAS],
             user_id=resolved_user_id,
-            guard_events=[input_event] if input_event is not None else [],
+            tool_calls=[
+                ToolCallRecord(round=1, name=step.tool, arguments=step.args, output=step.output)
+                for step in outcome.steps
+            ],
+            guard_events=guard_events,
             plan=_plan_payload(planned),
+            facts=facts,
         )
     finally:
         if owns_container:
@@ -74,6 +106,25 @@ def _plan_payload(result: PrivilegedPlanResult) -> dict:
     if result.plan is None or not result.plan.steps:
         payload["raw_text"] = result.raw_text
     return payload
+
+
+def _fact_trace(outcome: ExecutionResult) -> list[dict[str, Any]]:
+    facts: list[dict[str, Any]] = []
+    for step in outcome.steps:
+        item: dict[str, Any] = {"tool": step.tool, "args": step.args, "ok": step.ok}
+        if step.extracted is not None:
+            item["extracted"] = step.extracted
+        if step.error:
+            item["error"] = step.error
+        facts.append(item)
+    return facts
+
+
+def _stopped_reply(outcome: ExecutionResult) -> str:
+    failed = outcome.steps[-1] if outcome.steps else None
+    if failed is None:
+        return "The plan stopped before any step ran."
+    return f"Plan stopped at step {outcome.stopped_at}: {failed.tool} — {failed.error}"
 
 
 def _format_plan_reply(result: PrivilegedPlanResult) -> str:

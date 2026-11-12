@@ -82,8 +82,9 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 ## S2 — Isolation (Regime A pattern)
 
 - **S1:** “Is this text evil?” **S2:** “Even if poison arrives, can it choose what we do?”
-- **Chat path now:** S1 user gate → **P-LLM** returns an `AgentPlan` on `POST /chat` (`plan` field + a short text summary). The executor and Q-LLM are not called. A blocked user message never reaches the planner.
-- **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. No tools are passed, so it cannot execute them and it never sees tool output. The prompt tells it explicitly: bank tools fetch text (`save_as` names the raw blob); a `$field` is not a tool. The executor is supposed to send that blob to the Q-LLM and use only the typed field. The executor does not do that yet.
+- **Chat path now:** S1 user gate → **P-LLM** plan → **executor** runs tools and calls the **Q-LLM** for `$fields` and for typed facts → a separate **answer model** writes the reply. A blocked user message never reaches the planner.
+- The answer model is on the privileged side: no tools, and it sees the user request plus extracted facts only. The Q-LLM must not write the reply, because it just read the untrusted text and could repeat an instruction from it. The planner must not see tool output either.
+- **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. Bank tools fetch text (`save_as` names the raw blob). A `$field` is not a tool; the executor sends the blob to the Q-LLM and uses only the typed field. Raw blobs are not substituted into later tool args.
 - **Quarantined LLM** (`quarantined_llm_inference.py`): untrusted text, **no tools**, JSON for a caller-supplied Pydantic model or JSON schema.
 - CaMeL blocks *indirect* steering (poison in retrieved/tool text cannot pick the next tool). A jailbreak in the **user message** can still steer the P-LLM. Writes still need S3.
 - Pitfall: a small model may wrap the plan under a schema name (`PlanStep`). Pydantic ignores that extra key and fills defaults, so the API shows `valid: true` with **zero steps**. Ask for a flat `{goal, steps, notes}` object, and unwrap one nested object that actually contains `steps`.

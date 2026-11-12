@@ -90,6 +90,7 @@ class ChatResult:
     tool_calls: list[ToolCallRecord] = field(default_factory=list)
     guard_events: list[GuardEvent] = field(default_factory=list)
     plan: dict[str, Any] | None = None
+    facts: list[dict[str, Any]] = field(default_factory=list)
     blocked: bool = False
 
 

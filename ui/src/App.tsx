@@ -12,6 +12,7 @@ type ChatTurn = {
   blocked?: boolean
   tool_calls?: ToolCallTrace[]
   plan?: AgentPlanView | null
+  facts?: Record<string, unknown>[]
 }
 
 const EXAMPLES = [
@@ -101,6 +102,7 @@ function App() {
           blocked: response.blocked,
           tool_calls: response.tool_calls,
           plan: response.plan,
+          facts: response.facts,
         },
       ])
     } catch (err) {
@@ -122,7 +124,7 @@ function App() {
       <header className="top">
         <div>
           <h1>InjectGuard</h1>
-          <p>BankOps lab — S1 on the user message, then a privileged plan. Tools are not run yet.</p>
+          <p>BankOps lab — S1, then a privileged plan, then the executor. The reply uses structured facts only.</p>
         </div>
         <div className="meta">
           <button type="button" className="theme-toggle" onClick={toggleTheme}>
@@ -174,10 +176,19 @@ function App() {
 
             {turns.map((turn) => (
               <article key={turn.id} className={`msg ${turn.role} ${turn.blocked ? 'blocked' : ''}`}>
-                <header>{turn.role === 'user' ? 'You' : turn.blocked ? 'Blocked' : 'BankOps'}</header>
+                <header>{turn.role === 'user' ? 'You' : turn.blocked ? 'Blocked' : 'Final response'}</header>
                 <p>{turn.content}</p>
                 {turn.plan && (
-                  <pre className="plan-block">{JSON.stringify(turn.plan, null, 2)}</pre>
+                  <>
+                    <header>Plan</header>
+                    <pre className="plan-block">{JSON.stringify(turn.plan, null, 2)}</pre>
+                  </>
+                )}
+                {turn.facts && turn.facts.length > 0 && (
+                  <>
+                    <header>Facts</header>
+                    <pre className="plan-block">{JSON.stringify(turn.facts, null, 2)}</pre>
+                  </>
                 )}
                 {turn.tool_calls && turn.tool_calls.length > 0 && (
                   <ul className="used-list">
