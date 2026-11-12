@@ -19,7 +19,12 @@ import ollama
 from pydantic import ValidationError
 
 from app.config import MAX_PLAN_STEPS, OLLAMA_HOST, OLLAMA_MODEL, PLANNER_MODEL
-from app.guardrails.s2_isolation.prompt import PLANNER_SYSTEM_PROMPT, build_planner_user_message, format_tool_catalog
+from app.guardrails.s2_isolation.prompt import (
+    PLANNER_SYSTEM_PROMPT,
+    PLAN_SHAPE_EXAMPLE,
+    build_planner_user_message,
+    format_tool_catalog,
+)
 from app.guardrails.s2_isolation.schema import ALLOWED_TOOLS, SENSITIVE_PARAMS, AgentPlan, is_variable_ref
 from app.tools.get_account import GET_ACCOUNT_TOOL
 from app.tools.issue_refund import ISSUE_REFUND_TOOL
@@ -87,7 +92,7 @@ class PrivilegedLLM:
                 "content": build_planner_user_message(
                     request,
                     format_tool_catalog(self.tools),
-                    AgentPlan.model_json_schema(),
+                    PLAN_SHAPE_EXAMPLE,
                 ),
             },
         ]
@@ -99,7 +104,7 @@ class PrivilegedLLM:
 
         errors: list[str] = []
         try:
-            payload = self._extract_json_object(raw)
+            payload = self._coerce_plan_payload(self._extract_json_object(raw))
             steps = payload.get("steps")
             if isinstance(steps, list) and len(steps) > self.max_steps:
                 errors.append(f"truncating plan from {len(steps)} to {self.max_steps}")
@@ -137,6 +142,21 @@ class PrivilegedLLM:
                 }
             )
         return tools
+
+    def _coerce_plan_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Accept a flat plan, or one nested under a single key such as PlanStep."""
+        if isinstance(payload.get("steps"), list):
+            return payload
+        for key, value in payload.items():
+            if not isinstance(value, dict) or not isinstance(value.get("steps"), list):
+                continue
+            logger.info("PrivilegedLLM unwrapped nested plan key=%s", key)
+            return {
+                "goal": value.get("goal") or value.get("description") or "",
+                "steps": value.get("steps"),
+                "notes": value.get("notes"),
+            }
+        return payload
 
     def _extract_json_object(self, text: str) -> dict[str, Any]:
         cleaned = (text or "").strip()

@@ -82,10 +82,11 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 ## S2 — Isolation (Regime A pattern)
 
 - **S1:** “Is this text evil?” **S2:** “Even if poison arrives, can it choose what we do?”
-- Pattern (CaMeL-style split, not on the chat path yet): **P-LLM** → code executor → **Q-LLM**.
+- **Chat path now:** S1 user gate → **P-LLM** returns an `AgentPlan` on `POST /chat` (`plan` field + a short text summary). The executor and Q-LLM are not called. A blocked user message never reaches the planner.
 - **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. No tools are passed, so it cannot execute them and it never sees tool output. A value it does not already have is a `$placeholder` for the Q-LLM, not a guessed literal.
 - **Quarantined LLM** (`quarantined_llm_inference.py`): untrusted text, **no tools**, JSON for a caller-supplied Pydantic model or JSON schema.
 - CaMeL blocks *indirect* steering (poison in retrieved/tool text cannot pick the next tool). A jailbreak in the **user message** can still steer the P-LLM. Writes still need S3.
+- Pitfall: a small model may wrap the plan under a schema name (`PlanStep`). Pydantic ignores that extra key and fills defaults, so the API shows `valid: true` with **zero steps**. Ask for a flat `{goal, steps, notes}` object, and unwrap one nested object that actually contains `steps`.
 
 ---
 
@@ -104,7 +105,7 @@ Interview line: *Reads bring poison in; writes let poison out. Detection helps r
 
 ## App wiring (short)
 
-- **Chat helper:** `ContentGuard` on user message → `BaselineAgent` with the same guard on every tool result (retrieval vs write tools).
+- **Chat helper:** `ContentGuard` on the user message, then `PrivilegedLLM.plan`. Baseline tool loop is still in `baseline.py` and is not this path.
 - **AppContainer:** load classifier once at FastAPI lifespan; inject into handlers. Process-scoped services ≠ request-scoped `user_id`.
 - Classifier weights download from Hugging Face on first `open()` (Prompt Guard is gated — accept license + login once).
 

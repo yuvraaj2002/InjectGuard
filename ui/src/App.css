@@ -225,6 +225,20 @@
   background: var(--danger-soft);
 }
 
+.plan-block {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .used-list {
   list-style: none;
   margin: 10px 0 0;

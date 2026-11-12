@@ -27,6 +27,15 @@ export type GuardEventTrace = {
   tool_name?: string | null
 }
 
+export type AgentPlanView = {
+  valid?: boolean
+  errors?: string[]
+  goal?: string
+  steps?: { tool: string; args?: Record<string, unknown>; save_as?: string | null }[]
+  notes?: string | null
+  raw_text?: string
+}
+
 export type ChatResponse = {
   message: string
   reply: string
@@ -34,6 +43,7 @@ export type ChatResponse = {
   available_tools: string[]
   tool_calls: ToolCallTrace[]
   guard_events: GuardEventTrace[]
+  plan?: AgentPlanView | null
   blocked: boolean
 }
 

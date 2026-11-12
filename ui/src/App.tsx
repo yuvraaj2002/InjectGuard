@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
 import { fetchHealth, fetchTools, sendChat } from './api'
-import type { ChatResponse, ToolCallTrace, ToolInfo } from './api'
+import type { AgentPlanView, ChatResponse, ToolCallTrace, ToolInfo } from './api'
 import { ArchitectureFlow } from './components/ArchitectureFlow'
 import './App.css'
 
@@ -11,6 +11,7 @@ type ChatTurn = {
   content: string
   blocked?: boolean
   tool_calls?: ToolCallTrace[]
+  plan?: AgentPlanView | null
 }
 
 const EXAMPLES = [
@@ -99,6 +100,7 @@ function App() {
           content: response.reply,
           blocked: response.blocked,
           tool_calls: response.tool_calls,
+          plan: response.plan,
         },
       ])
     } catch (err) {
@@ -120,7 +122,7 @@ function App() {
       <header className="top">
         <div>
           <h1>InjectGuard</h1>
-          <p>BankOps lab — S1 on input, then tool-calling agent.</p>
+          <p>BankOps lab — S1 on the user message, then a privileged plan. Tools are not run yet.</p>
         </div>
         <div className="meta">
           <button type="button" className="theme-toggle" onClick={toggleTheme}>
@@ -174,6 +176,9 @@ function App() {
               <article key={turn.id} className={`msg ${turn.role} ${turn.blocked ? 'blocked' : ''}`}>
                 <header>{turn.role === 'user' ? 'You' : turn.blocked ? 'Blocked' : 'BankOps'}</header>
                 <p>{turn.content}</p>
+                {turn.plan && (
+                  <pre className="plan-block">{JSON.stringify(turn.plan, null, 2)}</pre>
+                )}
                 {turn.tool_calls && turn.tool_calls.length > 0 && (
                   <ul className="used-list">
                     {turn.tool_calls.map((call, i) => (

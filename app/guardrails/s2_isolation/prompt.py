@@ -84,16 +84,30 @@ def format_tool_catalog(tools: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+PLAN_SHAPE_EXAMPLE: dict[str, Any] = {
+    "goal": "short restatement of the user goal",
+    "steps": [
+        {
+            "tool": "read_dispute",
+            "args": {"dispute_id": "dispute-001"},
+            "save_as": "dispute_raw",
+        }
+    ],
+    "notes": "optional rationale",
+}
+
+
 def build_planner_user_message(
     user_request: str,
     tool_catalog: str,
-    plan_schema: dict[str, Any],
+    plan_schema: dict[str, Any] | None = None,
 ) -> str:
-    schema_json = json.dumps(plan_schema, indent=2)
+    shape = json.dumps(plan_schema or PLAN_SHAPE_EXAMPLE, indent=2)
     return (
         f"{tool_catalog}\n\n"
-        "Return one JSON object that matches this plan schema:\n"
-        f"{schema_json}\n\n"
+        "Return one JSON object with exactly these top-level keys: goal, steps, notes.\n"
+        "Do not wrap the plan under PlanStep or any other key. Copy this shape:\n"
+        f"{shape}\n\n"
         "User request:\n"
         f"{user_request.strip()}\n\n"
         "Return the JSON plan now."
