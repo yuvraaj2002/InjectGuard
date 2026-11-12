@@ -83,7 +83,7 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 
 - **S1:** “Is this text evil?” **S2:** “Even if poison arrives, can it choose what we do?”
 - **Chat path now:** S1 user gate → **P-LLM** returns an `AgentPlan` on `POST /chat` (`plan` field + a short text summary). The executor and Q-LLM are not called. A blocked user message never reaches the planner.
-- **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. No tools are passed, so it cannot execute them and it never sees tool output. A value it does not already have is a `$placeholder` for the Q-LLM, not a guessed literal.
+- **Privileged LLM** (`privileged_llm_inference.py`): user request + tool **schemas** only. Returns a pinned `AgentPlan`. No tools are passed, so it cannot execute them and it never sees tool output. The prompt tells it explicitly: bank tools fetch text (`save_as` names the raw blob); a `$field` is not a tool. The executor is supposed to send that blob to the Q-LLM and use only the typed field. The executor does not do that yet.
 - **Quarantined LLM** (`quarantined_llm_inference.py`): untrusted text, **no tools**, JSON for a caller-supplied Pydantic model or JSON schema.
 - CaMeL blocks *indirect* steering (poison in retrieved/tool text cannot pick the next tool). A jailbreak in the **user message** can still steer the P-LLM. Writes still need S3.
 - Pitfall: a small model may wrap the plan under a schema name (`PlanStep`). Pydantic ignores that extra key and fills defaults, so the API shows `valid: true` with **zero steps**. Ask for a flat `{goal, steps, notes}` object, and unwrap one nested object that actually contains `steps`.

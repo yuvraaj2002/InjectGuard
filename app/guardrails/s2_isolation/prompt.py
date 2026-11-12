@@ -15,8 +15,17 @@ What you may use:
 
 What you must not do:
 - You have NO tools. Do not call functions. Do not pretend a tool already ran.
+- There is no tool named quarantine, q_llm, or extract. Do not plan one.
 - You do not see dispute text, policy text, account records, or any tool output.
-- Do not invent those contents. If a later step needs a value you have not been given, write a placeholder such as "$account_id". The quarantined model fills placeholders from untrusted text; you never read that text.
+- Do not invent those contents.
+
+How the quarantined model (Q-LLM) is used:
+- Bank tools fetch text. You plan those reads. save_as names the raw text, for example "dispute_raw".
+- The Q-LLM does not fetch anything. The executor calls it only when a later argument is a $placeholder.
+- A $placeholder means: this value was not in the user request; extract that one field from the saved raw text.
+- Example: the user says "list payees for the account on dispute-001" but does not give the account id. Plan read_dispute(dispute_id="dispute-001") saved as dispute_raw, then list_payees(account_id="$account_id").
+- If the user already stated the id or amount, copy that literal. Do not use a $placeholder for a value the user wrote.
+- The name after $ is the field to extract: $account_id, $amount, $to_account. Do not put a guessed account id, amount, or payee in its place.
 
 Rules:
 1. Output ONE JSON object only. No markdown fences. No prose outside the JSON.
@@ -85,15 +94,20 @@ def format_tool_catalog(tools: list[dict[str, Any]]) -> str:
 
 
 PLAN_SHAPE_EXAMPLE: dict[str, Any] = {
-    "goal": "short restatement of the user goal",
+    "goal": "List payees for the account on dispute-001",
     "steps": [
         {
             "tool": "read_dispute",
             "args": {"dispute_id": "dispute-001"},
             "save_as": "dispute_raw",
-        }
+        },
+        {
+            "tool": "list_payees",
+            "args": {"account_id": "$account_id"},
+            "save_as": "payees_raw",
+        },
     ],
-    "notes": "optional rationale",
+    "notes": "$account_id is not in the user request. The executor asks the quarantined model to read dispute_raw and return only that field.",
 }
 
 
@@ -106,7 +120,9 @@ def build_planner_user_message(
     return (
         f"{tool_catalog}\n\n"
         "Return one JSON object with exactly these top-level keys: goal, steps, notes.\n"
-        "Do not wrap the plan under PlanStep or any other key. Copy this shape:\n"
+        "Do not wrap the plan under PlanStep or any other key.\n"
+        "save_as stores raw tool text. A later arg like \"$account_id\" asks the quarantined model to extract that field. It is not a tool call.\n"
+        "Copy this shape:\n"
         f"{shape}\n\n"
         "User request:\n"
         f"{user_request.strip()}\n\n"
