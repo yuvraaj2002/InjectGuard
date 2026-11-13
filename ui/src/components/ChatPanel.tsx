@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { streamChat } from '../api'
 import type { AgentPlanView, ChatStreamEvent, ToolCallTrace } from '../api'
+import { FactsView, PlanView } from './RunRecord'
 
 type TraceLine = {
   id: string
@@ -33,6 +34,7 @@ const EXAMPLES = [
 
 type Props = {
   hidden: boolean
+  resetKey: number
   onUsedTools: (names: string[]) => void
   onModel: (model: string) => void
 }
@@ -79,13 +81,24 @@ function SendIcon() {
   )
 }
 
-export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
+export function ChatPanel({ hidden, resetKey, onUsedTools, onModel }: Props) {
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [turns, setTurns] = useState<ChatTurn[]>([])
   const threadRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setTurns([])
+    setQuery('')
+    setError(null)
+    setLoading(false)
+    onUsedTools([])
+  }, [resetKey, onUsedTools])
 
   useEffect(() => {
     const node = threadRef.current
@@ -97,6 +110,9 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
     const message = query.trim()
     if (!message || loading) return
 
+    const controller = new AbortController()
+    abortRef.current?.abort()
+    abortRef.current = controller
     const assistantId = `a-${Date.now()}`
     setTurns((prev) => [
       ...prev,
@@ -108,15 +124,21 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
     setError(null)
 
     try {
-      await streamChat(message, (event) => {
-        if (event.type === 'done' && event.model) onModel(event.model)
-        if (event.type === 'done') onUsedTools((event.tool_calls ?? []).map((call) => call.name))
-        setTurns((prev) => prev.map((turn) => (turn.id === assistantId ? applyEvent(turn, event) : turn)))
-      })
+      await streamChat(
+        message,
+        (event) => {
+          if (controller.signal.aborted) return
+          if (event.type === 'done' && event.model) onModel(event.model)
+          if (event.type === 'done') onUsedTools((event.tool_calls ?? []).map((call) => call.name))
+          setTurns((prev) => prev.map((turn) => (turn.id === assistantId ? applyEvent(turn, event) : turn)))
+        },
+        controller.signal,
+      )
     } catch (err) {
+      if (controller.signal.aborted) return
       setError(err instanceof Error ? err.message : 'Chat request failed')
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) setLoading(false)
     }
   }
 
@@ -177,25 +199,15 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
                   ) : (
                     loading && (!turn.trace || turn.trace.length === 0) && <p className="pending">Working…</p>
                   )}
-                  {turn.tool_calls && turn.tool_calls.length > 0 && (
+                  {!(turn.plan?.steps && turn.plan.steps.length > 0) && turn.tool_calls && turn.tool_calls.length > 0 && (
                     <div className="chips">
                       {turn.tool_calls.map((call, index) => (
                         <code key={`${turn.id}-${call.name}-${index}`}>{call.name}</code>
                       ))}
                     </div>
                   )}
-                  {turn.plan && (
-                    <details className="fold">
-                      <summary>Plan</summary>
-                      <pre>{JSON.stringify(turn.plan, null, 2)}</pre>
-                    </details>
-                  )}
-                  {turn.facts && turn.facts.length > 0 && (
-                    <details className="fold">
-                      <summary>Facts</summary>
-                      <pre>{JSON.stringify(turn.facts, null, 2)}</pre>
-                    </details>
-                  )}
+                  {turn.plan && <PlanView plan={turn.plan} />}
+                  {turn.facts && turn.facts.length > 0 && <FactsView facts={turn.facts} />}
                 </div>
               ),
             )}

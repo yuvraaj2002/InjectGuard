@@ -97,11 +97,13 @@ export type ChatStreamEvent = {
 export async function streamChat(
   message: string,
   onEvent: (event: ChatStreamEvent) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
     body: JSON.stringify({ message }),
+    signal,
   })
   if (!response.ok) {
     throw new Error(await parseError(response))

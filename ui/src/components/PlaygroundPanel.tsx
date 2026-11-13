@@ -1,49 +1,96 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { classifyMessage } from '../api'
 import type { PlaygroundClassifyResponse, PlaygroundOption } from '../api'
-
-type Run = {
-  id: string
-  label: string
-  results: PlaygroundClassifyResponse[]
-}
 
 const CAUGHT_TYPES = new Set(['direct_override', 'developer_mode', 'dan_persona'])
 
 type Props = {
   hidden: boolean
   active: boolean
+  resetKey: number
   options: PlaygroundOption[]
   selectedType: string | null
   onSelect: (type: string) => void
-}
-
-function SendIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        d="M8 13V3.5M8 3.5 4.25 7.25M8 3.5l3.75 3.75"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
 }
 
 function formatPercent(confidence: number) {
   return `${Math.round(confidence * 1000) / 10}%`
 }
 
-function pastedText(option: PlaygroundOption) {
-  if (option.messages.length === 1) return option.messages[0]
-  return option.messages.map((message, index) => `Turn ${index + 1}\n${message}`).join('\n\n')
+function parseReason(reason: string) {
+  const label = reason.match(/label=(\S+)/)?.[1]
+  const score = reason.match(/score=([0-9.]+)/)?.[1]
+  return { label, score }
 }
 
-function OptionCards({
+function labelMeaning(label: string | undefined, injection: boolean) {
+  if (label === 'LABEL_0' || label === 'BENIGN' || label === 'SAFE') return 'Benign'
+  if (label === 'LABEL_1' || label === 'MALICIOUS' || label === 'INJECTION' || label === 'JAILBREAK') return 'Injection'
+  return injection ? 'Injection' : 'Benign'
+}
+
+function prettyToken(value: string) {
+  return value.replaceAll('_', ' ')
+}
+
+function shortModel(model: string) {
+  return model.split('/').pop() || model
+}
+
+function Scorecard({ result, turn }: { result: PlaygroundClassifyResponse; turn: number | null }) {
+  const flagged = result.injection
+  const { label, score } = parseReason(result.reason)
+  const meaning = labelMeaning(label, flagged)
+  const width = `${Math.max(0, Math.min(100, result.confidence * 100))}%`
+
+  return (
+    <article className={flagged ? 'result scorecard caught' : 'result scorecard passed'}>
+      {turn !== null && <p className="turn-kicker">Turn {turn}</p>}
+      <div className="scorecard-head">
+        <div>
+          <p className="scorecard-kicker">{flagged ? 'Caught' : 'Missed'}</p>
+          <h3>{flagged ? 'Flagged as an injection' : 'Not flagged'}</h3>
+          <p>{label ? `Read as ${meaning.toLowerCase()} (${label}).` : `Read as ${meaning.toLowerCase()}.`}</p>
+        </div>
+        <div className="scorecard-meter">
+          <strong>{formatPercent(result.confidence)}</strong>
+          <span>confidence</span>
+          <div className="meter" role="img" aria-label={`${formatPercent(result.confidence)} confidence`}>
+            <span style={{ width }} />
+          </div>
+        </div>
+      </div>
+      <dl className="scorecard-facts">
+        <div>
+          <dt>Label</dt>
+          <dd>{label ? `${label} · ${meaning}` : meaning}</dd>
+        </div>
+        <div>
+          <dt>Score</dt>
+          <dd>{score ?? result.confidence.toFixed(3)}</dd>
+        </div>
+        <div>
+          <dt>Latency</dt>
+          <dd>{Math.round(result.latency_ms)} ms</dd>
+        </div>
+        <div>
+          <dt>Source</dt>
+          <dd>{prettyToken(result.source)}</dd>
+        </div>
+        <div>
+          <dt>Sample</dt>
+          <dd>{prettyToken(result.type)}</dd>
+        </div>
+        <div>
+          <dt>Model</dt>
+          <dd title={result.model}>{shortModel(result.model)}</dd>
+        </div>
+      </dl>
+    </article>
+  )
+}
+
+function OptionList({
   options,
   selectedType,
   onSelect,
@@ -71,168 +118,113 @@ function OptionCards({
   )
 }
 
-export function PlaygroundPanel({ hidden, active, options, selectedType, onSelect }: Props) {
-  const [runs, setRuns] = useState<Run[]>([])
-  const [draft, setDraft] = useState('')
+export function PlaygroundPanel({ hidden, resetKey, options, selectedType, onSelect }: Props) {
+  const [results, setResults] = useState<PlaygroundClassifyResponse[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const threadRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
   const selected = options.find((option) => option.type === selectedType) ?? null
+  const benchRef = useRef<HTMLElement>(null)
+  const requestRef = useRef(0)
 
   useEffect(() => {
-    setDraft(selected ? pastedText(selected) : '')
-  }, [selected])
+    requestRef.current += 1
+    setResults(null)
+    setError(null)
+    setLoading(false)
+  }, [resetKey])
 
   useEffect(() => {
-    const input = inputRef.current
-    if (!input) return
-    input.style.height = 'auto'
-    input.style.height = `${Math.min(input.scrollHeight, 220)}px`
-  }, [draft])
+    if (hidden || !selectedType) return
+    benchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [hidden, selectedType, results])
 
-  useEffect(() => {
-    const node = threadRef.current
-    if (node) node.scrollTop = node.scrollHeight
-  }, [runs, loading, selectedType])
+  function choose(type: string) {
+    if (type !== selectedType) {
+      setResults(null)
+      setError(null)
+    }
+    onSelect(type)
+  }
 
-  const run = useCallback(async () => {
+  async function runSelected() {
     if (!selected || loading) return
-    const messages = selected.messages.length === 1 ? [draft.trim()] : selected.messages
-    if (messages.some((message) => !message)) return
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
     setLoading(true)
     setError(null)
+    setResults(null)
     try {
-      const results = await Promise.all(
-        messages.map((message) => classifyMessage(selected.type, message)),
-      )
-      setRuns((prev) => [...prev, { id: `${selected.type}-${Date.now()}`, label: selected.label, results }])
+      const next = await Promise.all(selected.messages.map((message) => classifyMessage(selected.type, message)))
+      if (requestRef.current !== requestId) return
+      setResults(next)
     } catch (err) {
+      if (requestRef.current !== requestId) return
       setError(err instanceof Error ? err.message : 'Classifier request failed')
     } finally {
-      setLoading(false)
+      if (requestRef.current === requestId) setLoading(false)
     }
-  }, [draft, loading, selected])
-
-  useEffect(() => {
-    if (!active) return
-    function onKey(event: globalThis.KeyboardEvent) {
-      if (event.key !== 'Enter' || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return
-      const target = event.target
-      if (
-        (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) &&
-        target.offsetParent !== null
-      ) {
-        return
-      }
-      event.preventDefault()
-      void run()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [active, run])
+  }
 
   return (
-    <section className="panel" hidden={hidden} aria-label="Playground">
-      <div className={runs.length === 0 ? 'thread thread-stage' : 'thread'} ref={threadRef}>
-        <div className="picker">
-          <header className="picker-intro">
-            <h1>Playground</h1>
-            <p>Pick a jailbreak. The sample goes in the message field, then press Enter.</p>
-          </header>
-          {options.length === 0 ? (
-            <p className="picker-empty">Jailbreak types appear when the API is online.</p>
-          ) : (
-            <>
-              <section className="picker-group">
-                <h2>Caught</h2>
-                <OptionCards
-                  options={options.filter((option) => CAUGHT_TYPES.has(option.type))}
-                  selectedType={selectedType}
-                  onSelect={onSelect}
-                />
-              </section>
-              <section className="picker-group">
-                <h2>Obfuscated</h2>
-                <OptionCards
-                  options={options.filter((option) => !CAUGHT_TYPES.has(option.type))}
-                  selectedType={selectedType}
-                  onSelect={onSelect}
-                />
-              </section>
-            </>
+    <section className="panel playground" hidden={hidden} aria-label="Playground">
+      <header className="picker-intro playground-head">
+        <h1>Playground</h1>
+        <p>Choose a sample, then run it. Only the input classifier scores it. The agent does not run.</p>
+      </header>
+
+      {options.length === 0 ? (
+        <p className="picker-empty">Jailbreak types appear when the API is online.</p>
+      ) : (
+        <div className="playground-scroll">
+          <section className="picker-group">
+            <h2>Caught</h2>
+            <OptionList
+              options={options.filter((option) => CAUGHT_TYPES.has(option.type))}
+              selectedType={selectedType}
+              onSelect={choose}
+            />
+          </section>
+          <section className="picker-group">
+            <h2>Obfuscated</h2>
+            <OptionList
+              options={options.filter((option) => !CAUGHT_TYPES.has(option.type))}
+              selectedType={selectedType}
+              onSelect={choose}
+            />
+          </section>
+
+          {selected && (
+            <section className="specimen" ref={benchRef} aria-live="polite">
+              <div className="specimen-verdict">
+                <h2>{selected.label}</h2>
+                <p className="specimen-note">{selected.description}</p>
+              </div>
+              <div className="specimen-texts">
+                {selected.messages.map((message, index) => (
+                  <pre key={`${selected.type}-text-${index}`} className="specimen-sample">
+                    {selected.messages.length > 1 ? `Turn ${index + 1}\n${message}` : message}
+                  </pre>
+                ))}
+              </div>
+              <button type="button" className="run-classifier" disabled={loading} onClick={() => void runSelected()}>
+                {loading ? 'Scoring…' : 'Run classifier'}
+              </button>
+              {error && <p className="form-error">{error}</p>}
+              {results && results.length > 0 && (
+                <div className="specimen-response">
+                  {results.map((result, index) => (
+                    <Scorecard
+                      key={`${selected.type}-result-${index}`}
+                      result={result}
+                      turn={results.length > 1 ? index + 1 : null}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
           )}
         </div>
-        {runs.length > 0 && (
-          <div className="thread-inner playground-results">
-            {runs.map((item) => (
-              <article key={item.id}>
-                <p className="run-label">{item.label}</p>
-                {item.results.map((result, index) => {
-                  const passed = !result.injection
-                  return (
-                    <div key={`${item.id}-${index}`} className={passed ? 'result passed' : 'result caught'}>
-                      <div className="result-status">
-                        {item.results.length > 1 && <span className="turn-kicker">Turn {index + 1}</span>}
-                        <span className="result-dot" aria-hidden="true" />
-                        <div>
-                          <strong>{passed ? 'Passed through' : 'Did not pass through'}</strong>
-                          <p>
-                            {passed ? 'The classifier did not flag this.' : 'The classifier flagged this as an injection.'}{' '}
-                            {Math.round(result.latency_ms)} ms
-                          </p>
-                        </div>
-                        <span className="result-score">{formatPercent(result.confidence)}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </article>
-            ))}
-            {loading && (
-              <p className="run-label" aria-live="polite">
-                Checking the input classifier…
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="dock playground-dock">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            void run()
-          }}
-        >
-          <div className="composer">
-            <textarea
-              ref={inputRef}
-              className="pasted"
-              rows={1}
-              value={draft}
-              placeholder="Select a jailbreak type"
-              aria-label="Jailbreak message"
-              disabled={!selected || loading}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  void run()
-                }
-              }}
-            />
-            <button className="send" type="submit" disabled={!selected || loading || !draft.trim()} aria-label="Run classifier">
-              <SendIcon />
-            </button>
-          </div>
-        </form>
-        {error ? (
-          <p className="form-error">{error}</p>
-        ) : (
-          <p className="hint">{selected ? 'Enter to run this sample through the input classifier' : 'Choose a card, then press Enter'}</p>
-        )}
-      </div>
+      )}
     </section>
   )
 }

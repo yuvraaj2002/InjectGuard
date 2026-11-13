@@ -17,6 +17,7 @@ function App() {
   const [healthy, setHealthy] = useState<boolean | null>(null)
   const [bootError, setBootError] = useState<string | null>(null)
   const [theme, setTheme] = useState<'light' | 'night'>('light')
+  const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
     const saved = window.localStorage.getItem('injectguard-theme')
@@ -60,13 +61,19 @@ function App() {
 
   const used = new Set(usedTools)
 
+  function clearScreen() {
+    setSelectedType(null)
+    setUsedTools([])
+    setResetKey((key) => key + 1)
+  }
+
   function openView(next: View) {
     setView(next)
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   }
 
   return (
-    <div className={view === 'playground' ? 'shell shell-playground' : 'shell'}>
+    <div className="shell">
       <aside className="sidebar">
         <div className="brand">InjectGuard</div>
         <nav className="nav" aria-label="Sections">
@@ -109,17 +116,23 @@ function App() {
             <span className={healthy ? 'status-dot on' : healthy === false ? 'status-dot off' : 'status-dot'} />
             <em>{healthy === null ? 'Connecting' : healthy ? model || 'Online' : 'Offline'}</em>
           </span>
-          <button type="button" className="ghost" onClick={toggleTheme}>
-            {theme === 'night' ? 'Light' : 'Dark'}
-          </button>
+          <span className="foot-actions">
+            <button type="button" className="ghost" onClick={clearScreen}>
+              Clear
+            </button>
+            <button type="button" className="ghost" onClick={toggleTheme}>
+              {theme === 'night' ? 'Light' : 'Dark'}
+            </button>
+          </span>
         </div>
       </aside>
 
       <main>
-        <ChatPanel hidden={view !== 'chat'} onUsedTools={setUsedTools} onModel={setModel} />
+        <ChatPanel hidden={view !== 'chat'} resetKey={resetKey} onUsedTools={setUsedTools} onModel={setModel} />
         <PlaygroundPanel
           hidden={view !== 'playground'}
           active={view === 'playground'}
+          resetKey={resetKey}
           options={options}
           selectedType={selectedType}
           onSelect={setSelectedType}
