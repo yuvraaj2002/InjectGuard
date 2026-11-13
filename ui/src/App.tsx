@@ -92,7 +92,7 @@ function App() {
 
         {view === 'chat' && (
           <div className="side-scroll">
-            <p className="side-label">Tools</p>
+            <p className="side-label">Available tools</p>
             {tools.length === 0 ? (
               <p className="side-empty">{bootError ?? 'Tools appear when the API is online.'}</p>
             ) : (
