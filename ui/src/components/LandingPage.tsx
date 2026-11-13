@@ -68,41 +68,29 @@ export function LandingPage({ theme, onToggleTheme, onEnter }: LandingPageProps)
       </header>
 
       <section className="land-hero">
-        <p className="land-kicker">InjectGuard Lab</p>
-        <h1>BankOps can transfer funds. The email it reads does not get to say where.</h1>
-        <p className="land-lede">
-          A keyword-retrieval ops agent with tools that transfer funds, issue a refund, or change a payee. InjectGuard
-          is the bench around it: detection, a plan pinned before the email is read, and a write that waits for a
-          person.
-        </p>
-        <div className="land-hero-actions">
-          <button type="button" className="land-enter" onClick={() => onEnter('chat')}>
-            Talk to BankOps
-          </button>
-          <button type="button" className="land-quiet" onClick={() => onEnter('playground')}>
-            Score a jailbreak
-          </button>
-        </div>
-      </section>
-
-      <section className="land-block">
-        <div className="land-index">
-          <span>01</span>
-          <p>The turn</p>
-        </div>
-        <div>
-          <h2>One dispute, still moving.</h2>
-          <p className="land-note">
-            It keeps playing. Pick a stop if you want to sit on that moment. The next one follows on its own.
+        <div className="land-intro">
+          <p className="land-kicker">InjectGuard Lab</p>
+          <h1>BankOps can transfer funds. The email it reads does not get to say where.</h1>
+          <p className="land-lede">
+            A keyword-retrieval ops agent with tools that transfer funds, issue a refund, or change a payee. The panel
+            keeps moving through one dispute. Pick a stop if you want to sit on it.
           </p>
-          <TurnWalk />
+          <div className="land-hero-actions">
+            <button type="button" className="land-enter" onClick={() => onEnter('chat')}>
+              Talk to BankOps
+            </button>
+            <button type="button" className="land-quiet" onClick={() => onEnter('playground')}>
+              Score a jailbreak
+            </button>
+          </div>
         </div>
+        <TurnWalk />
       </section>
 
       <section className="land-layers" aria-labelledby="layers-title">
         <div className="land-layers-intro">
           <div className="land-index">
-            <span>02</span>
+            <span>01</span>
             <p>Three controls</p>
           </div>
           <h2 id="layers-title">They run in this order, and none of them is enough on its own.</h2>
@@ -122,7 +110,7 @@ export function LandingPage({ theme, onToggleTheme, onEnter }: LandingPageProps)
 
       <section className="land-block rooms-wrap">
         <div className="land-index">
-          <span>04</span>
+          <span>03</span>
           <p>Two rooms</p>
         </div>
         <div className="land-rooms" aria-label="Enter the lab">
@@ -316,7 +304,7 @@ function DisguiseBench({ onOpen }: { onOpen: () => void }) {
   return (
     <section className="land-block disguise">
       <div className="land-index">
-        <span>03</span>
+        <span>02</span>
         <p>Costumes</p>
       </div>
       <div>

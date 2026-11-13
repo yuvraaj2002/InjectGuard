@@ -88,14 +88,14 @@
 }
 
 .land-hero {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(340px, 1.08fr);
+  gap: 40px;
+  align-items: center;
   box-sizing: border-box;
-  min-height: calc(100% - 88px);
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 48px 28px 72px;
+  padding: 36px 32px 28px;
 }
 
 .land-kicker,
@@ -175,7 +175,7 @@
 
 .walk {
   min-width: 0;
-  margin-top: 20px;
+  margin-top: 0;
   padding: 14px;
   background: var(--fill);
   border: 1px solid var(--line);
@@ -495,9 +495,8 @@
 
 @media (max-width: 900px) {
   .land-hero {
-    min-height: 0;
-    justify-content: flex-start;
-    padding-top: 36px;
+    grid-template-columns: 1fr;
+    padding-top: 28px;
   }
 
   .land-block,
