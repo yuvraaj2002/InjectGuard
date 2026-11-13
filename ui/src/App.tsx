@@ -75,17 +75,17 @@ function App() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">InjectGuard</div>
-        <nav className="nav" aria-label="Sections">
-          <button type="button" className="nav-item" aria-current={view === 'chat' ? 'page' : undefined} onClick={() => openView('chat')}>
+        <div className="brand">
+          <img src="/injectguard-logo.jpg" alt="" width={32} height={32} />
+          <span className="brand-name">
+            <em>Inject</em>Guard
+          </span>
+        </div>
+        <nav className="view-switch" aria-label="Sections">
+          <button type="button" aria-current={view === 'chat' ? 'page' : undefined} onClick={() => openView('chat')}>
             Chat
           </button>
-          <button
-            type="button"
-            className="nav-item"
-            aria-current={view === 'playground' ? 'page' : undefined}
-            onClick={() => openView('playground')}
-          >
+          <button type="button" aria-current={view === 'playground' ? 'page' : undefined} onClick={() => openView('playground')}>
             Playground
           </button>
         </nav>
@@ -116,18 +116,18 @@ function App() {
             <span className={healthy ? 'status-dot on' : healthy === false ? 'status-dot off' : 'status-dot'} />
             <em>{healthy === null ? 'Connecting' : healthy ? model || 'Online' : 'Offline'}</em>
           </span>
-          <span className="foot-actions">
-            <button type="button" className="ghost" onClick={clearScreen}>
-              Clear
-            </button>
-            <button type="button" className="ghost" onClick={toggleTheme}>
-              {theme === 'night' ? 'Light' : 'Dark'}
-            </button>
-          </span>
+          <button type="button" className="ghost" onClick={toggleTheme}>
+            {theme === 'night' ? 'Light' : 'Dark'}
+          </button>
         </div>
       </aside>
 
       <main>
+        <div className="main-bar">
+          <button type="button" className="clear-screen" onClick={clearScreen}>
+            Clear
+          </button>
+        </div>
         <ChatPanel hidden={view !== 'chat'} resetKey={resetKey} onUsedTools={setUsedTools} onModel={setModel} />
         <PlaygroundPanel
           hidden={view !== 'playground'}
