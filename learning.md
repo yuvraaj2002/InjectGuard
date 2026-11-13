@@ -63,6 +63,8 @@ BankOps = a **tool-calling banking ops agent** that is intentionally vulnerable 
 - Same scorer, different actions: **block** user input; **drop** retrieved/tool text (replace with a short block notice) before it re-enters the model.
 - Detectors still fail: paraphrases / tokenization tricks slip through; false blocks hurt utility. Pair with S2/S3.
 - Fail-open on scorer errors is a product choice — call it out in reviews.
+- **Playground** (`POST /playground/classify`): score a labeled message without running the agent or tools. `type` is caller metadata; the classifier only sees `message`. That keeps detector eval separate from agent ASR and avoids sink side effects.
+- **Playground menu** (`GET /playground/options`): eight families over one lab instruction — leetspeak, reversed text, Welsh (lower-resource phrasing), `a + b` smuggling, roleplay, base64, unicode lookalikes, and multi-turn fragments. Each `messages` string is a POST body. A single-string encoder often misses these because the app does not reverse, decode, or reassemble before scoring, and each multi-turn fragment is scored alone.
 - Legacy: Ollama System One (`noul`) lives in `decision_model_inference.py` for ablation — not on the hot path.
 
 ---

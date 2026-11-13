@@ -11,12 +11,16 @@ from app.config import (
 )
 from app.container import AppContainer
 from app.deps import get_container
+from app.playground import list_playground_options
 from app.schemas import (
     ChatRequest,
     ChatResponse,
     GuardEventTrace,
     GuardLayerInfo,
     HealthResponse,
+    PlaygroundClassifyRequest,
+    PlaygroundClassifyResponse,
+    PlaygroundOptionsResponse,
     ToolCallTrace,
     ToolInfo,
     ToolsResponse,
@@ -121,4 +125,48 @@ def chat(
         plan=result.plan,
         facts=result.facts,
         blocked=result.blocked,
+    )
+
+
+@router.get("/playground/options", response_model=PlaygroundOptionsResponse)
+def playground_options() -> PlaygroundOptionsResponse:
+    """Jailbreak families and the messages to send to POST /playground/classify."""
+    options = list_playground_options()
+    logger.info("Playground options listed count=%s", len(options))
+    return PlaygroundOptionsResponse(options=options)
+
+
+@router.post("/playground/classify", response_model=PlaygroundClassifyResponse)
+def playground_classify(
+    payload: PlaygroundClassifyRequest,
+    container: AppContainer = Depends(get_container),
+) -> PlaygroundClassifyResponse:
+    """Score a labeled message with the S1 input classifier. Does not run the agent."""
+    attempt_type = payload.type.strip()
+    message = payload.message.strip()
+    logger.info("Playground classify type=%s message=%s", attempt_type, message)
+    try:
+        verdict = container.input_classifier.score(message, source="user_input")
+    except Exception as exc:  # noqa: BLE001 - surface classifier failures cleanly
+        logger.exception("Playground classifier failed")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Input classifier failed: {exc}",
+        ) from exc
+
+    logger.info(
+        "Playground classify ready type=%s injection=%s confidence=%.3f",
+        attempt_type,
+        verdict.injection,
+        verdict.confidence,
+    )
+    return PlaygroundClassifyResponse(
+        type=attempt_type,
+        message=message,
+        injection=verdict.injection,
+        confidence=verdict.confidence,
+        reason=verdict.reason,
+        model=verdict.model,
+        source=verdict.source,
+        latency_ms=verdict.latency_ms,
     )
