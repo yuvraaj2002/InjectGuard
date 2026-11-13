@@ -2,13 +2,20 @@ import { useEffect, useState } from 'react'
 import { fetchHealth, fetchPlaygroundOptions, fetchTools } from './api'
 import type { PlaygroundOption, ToolInfo } from './api'
 import { ChatPanel } from './components/ChatPanel'
+import { LandingPage } from './components/LandingPage'
 import { PlaygroundPanel } from './components/PlaygroundPanel'
 import './App.css'
 
-type View = 'chat' | 'playground'
+type View = 'landing' | 'chat' | 'playground'
+
+function routeFromHash(): View {
+  const hash = window.location.hash.slice(1)
+  if (hash === 'chat' || hash === 'playground') return hash
+  return 'landing'
+}
 
 function App() {
-  const [view, setView] = useState<View>('chat')
+  const [view, setView] = useState<View>(routeFromHash)
   const [tools, setTools] = useState<ToolInfo[]>([])
   const [options, setOptions] = useState<PlaygroundOption[]>([])
   const [selectedType, setSelectedType] = useState<string | null>(null)
@@ -67,20 +74,36 @@ function App() {
     setResetKey((key) => key + 1)
   }
 
+  useEffect(() => {
+    const sync = () => setView(routeFromHash())
+    window.addEventListener('hashchange', sync)
+    window.addEventListener('popstate', sync)
+    return () => {
+      window.removeEventListener('hashchange', sync)
+      window.removeEventListener('popstate', sync)
+    }
+  }, [])
+
   function openView(next: View) {
+    const url = next === 'landing' ? window.location.pathname + window.location.search : `#${next}`
+    window.history.pushState(null, '', url)
     setView(next)
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+  }
+
+  if (view === 'landing') {
+    return <LandingPage theme={theme} onToggleTheme={toggleTheme} onEnter={openView} />
   }
 
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand">
+        <button type="button" className="brand" onClick={() => openView('landing')}>
           <img src="/injectguard-logo.jpg" alt="" width={32} height={32} />
           <span className="brand-name">
             <em>Inject</em>Guard
           </span>
-        </div>
+        </button>
         <nav className="view-switch" aria-label="Sections">
           <button type="button" aria-current={view === 'chat' ? 'page' : undefined} onClick={() => openView('chat')}>
             Chat
@@ -124,6 +147,9 @@ function App() {
 
       <main>
         <div className="main-bar">
+          <button type="button" className="clear-screen" onClick={() => openView('landing')}>
+            Index
+          </button>
           <button type="button" className="clear-screen" onClick={clearScreen}>
             Clear
           </button>

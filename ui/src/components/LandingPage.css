@@ -1,0 +1,534 @@
+.landing {
+  height: 100%;
+  overflow: auto;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.land-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 28px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.land-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.land-brand img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.land-brand .brand-name {
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.land-brand .brand-name em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.land-bar-actions,
+.land-hero-actions,
+.disguise-switch,
+.walk-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.land-enter,
+.land-quiet,
+.land-ghost {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.land-enter {
+  border: none;
+  background: var(--cobalt);
+  color: #fff;
+}
+
+.land-enter:hover {
+  background: color-mix(in srgb, var(--cobalt) 86%, #000);
+}
+
+.land-quiet,
+.land-ghost {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+}
+
+.land-quiet:hover,
+.land-ghost:hover {
+  background: var(--fill);
+}
+
+.land-hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  min-height: calc(100% - 88px);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 48px 28px 72px;
+}
+
+.land-kicker,
+.stage-kicker {
+  margin: 0 0 12px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.land-hero h1,
+.land-block h2,
+.land-layers h2,
+.land-rooms h2 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.land-hero h1 {
+  max-width: 14em;
+  font-size: clamp(2.35rem, 4.8vw, 3.55rem);
+}
+
+.land-block h2,
+.land-layers h2 {
+  max-width: 22em;
+  font-size: clamp(1.65rem, 2.6vw, 2.15rem);
+}
+
+.land-lede,
+.land-note,
+.stage-note,
+.disguise p,
+.land-rooms p,
+.land-layers p {
+  color: var(--secondary);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.land-lede,
+.land-note {
+  max-width: 38rem;
+  margin: 16px 0 0;
+}
+
+.land-hero-actions {
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.land-block {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 28px 32px;
+  align-items: start;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 72px 28px;
+}
+
+.land-index span {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.land-index p {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--tertiary);
+}
+
+.walk {
+  min-width: 0;
+  margin-top: 20px;
+  padding: 14px;
+  background: var(--fill);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.walk-steps {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.walk-steps button,
+.disguise-switch button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 6px 8px;
+}
+
+.walk-steps button span {
+  display: inline-block;
+  margin-right: 6px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  color: var(--tertiary);
+}
+
+.walk-steps button[aria-pressed='true'],
+.disguise-switch button[aria-pressed='true'] {
+  background: var(--selected);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--ink);
+}
+
+.walk-steps button[aria-pressed='true'] span {
+  color: var(--accent);
+}
+
+.walk-stage {
+  min-height: 228px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.stage-bubble,
+.stage-doc,
+.stage-scores,
+.stage-plan,
+.stage-hold,
+.disguise-panel pre {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+
+.stage-bubble {
+  font-size: 0.975rem;
+}
+
+.stage-doc {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.stage-doc p {
+  margin: 0;
+}
+
+.stage-doc p + p {
+  margin-top: 8px;
+}
+
+.stage-doc mark {
+  background: var(--pass-bg);
+  color: inherit;
+  padding: 0 0.15em;
+}
+
+.stage-note {
+  margin: 12px 0 0;
+}
+
+.stage-scores {
+  display: grid;
+  gap: 8px;
+}
+
+.stage-scores p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.verdict {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.verdict.ok {
+  background: var(--block-bg);
+  color: var(--ok);
+}
+
+.verdict.bad {
+  background: var(--pass-bg);
+  color: var(--danger);
+}
+
+.stage-plan {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.stage-plan li,
+.stage-hold div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.stage-plan code,
+.stage-hold dd {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.stage-plan span,
+.stage-hold dt {
+  color: var(--secondary);
+  font-size: 0.8125rem;
+}
+
+.stage-plan .dropped code {
+  color: var(--tertiary);
+  text-decoration: line-through;
+}
+
+.stage-hold {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.stage-hold dt {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.stage-hold dd {
+  margin: 0;
+}
+
+.land-layers {
+  background: var(--charcoal);
+  color: var(--rail-ink);
+  padding: 72px 28px 32px;
+}
+
+.land-layers-intro {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 28px 32px;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.land-layers .land-index p {
+  color: var(--rail-muted);
+}
+
+.land-layers ol {
+  list-style: none;
+  max-width: 1120px;
+  margin: 20px auto 0;
+  padding: 0 0 28px;
+}
+
+.land-layers li {
+  display: grid;
+  grid-template-columns: 148px 180px minmax(0, 1fr);
+  gap: 28px 32px;
+  align-items: start;
+  padding: 26px 0;
+  border-top: 1px solid var(--rail-line);
+}
+
+.layer-id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  color: #8eb0ff;
+}
+
+.land-layers h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.land-layers p {
+  margin: 0;
+  color: var(--rail-muted);
+}
+
+.disguise {
+  grid-template-columns: 148px minmax(220px, 0.72fr) minmax(0, 1.2fr);
+}
+
+.disguise p {
+  margin: 12px 0 16px;
+}
+
+.land-facts,
+.land-foot {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.disguise-panel {
+  min-width: 0;
+}
+
+.disguise-switch {
+  margin-bottom: 8px;
+}
+
+.disguise-panel pre {
+  overflow: auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.land-rooms {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.land-rooms h2 {
+  font-size: 1.35rem;
+}
+
+.land-rooms article {
+  padding: 16px 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--fill);
+}
+
+.land-rooms p {
+  margin: 8px 0 16px;
+}
+
+.land-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  padding-top: 12px;
+  padding-bottom: 64px;
+}
+
+.land-facts p {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-strong);
+  color: var(--secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.land-facts strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.land-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  padding-bottom: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.land-foot p {
+  margin: 0;
+  color: var(--tertiary);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 900px) {
+  .land-hero {
+    min-height: 0;
+    justify-content: flex-start;
+    padding-top: 36px;
+  }
+
+  .land-block,
+  .disguise,
+  .land-layers-intro,
+  .land-layers li,
+  .land-rooms,
+  .land-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .land-layers li,
+  .land-block,
+  .land-layers-intro {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .land-bar,
+  .land-hero,
+  .land-block,
+  .land-layers,
+  .land-facts,
+  .land-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .land-foot {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
