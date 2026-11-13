@@ -47,9 +47,17 @@ def _visible(text: str | None) -> str:
     return _THINK_RE.sub("", text or "").strip()
 
 
-def complete(messages: list[dict[str, Any]], *, model: str = GROQ_MODEL) -> str:
+def complete(
+    messages: list[dict[str, Any]],
+    *,
+    model: str = GROQ_MODEL,
+    max_completion_tokens: int | None = None,
+) -> str:
     """Return the assistant text for a chat that has no tools."""
-    completion = _client().chat.completions.create(messages=messages, **_params(model))
+    params = _params(model)
+    if max_completion_tokens is not None:
+        params["max_completion_tokens"] = max_completion_tokens
+    completion = _client().chat.completions.create(messages=messages, **params)
     return _visible(completion.choices[0].message.content)
 
 

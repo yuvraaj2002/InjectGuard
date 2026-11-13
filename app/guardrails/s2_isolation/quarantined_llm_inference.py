@@ -18,7 +18,12 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.config import GROQ_MODEL, QUARANTINE_MAX_INPUT_CHARS, QUARANTINE_MODEL
+from app.config import (
+    GROQ_MODEL,
+    QUARANTINE_MAX_COMPLETION_TOKENS,
+    QUARANTINE_MAX_INPUT_CHARS,
+    QUARANTINE_MODEL,
+)
 from app.llm.groq_chat import complete
 from app.guardrails.s2_isolation.prompt import QUARANTINE_SYSTEM_PROMPT, build_quarantine_user_message
 
@@ -89,7 +94,11 @@ class QuarantinedLLM:
         ]
         logger.info("QuarantinedLLM extracting model=%s chars=%s", self.model, len(text))
         # No tools. This model must not be able to call functions.
-        raw = complete(messages, model=self.model)
+        raw = complete(
+            messages,
+            model=self.model,
+            max_completion_tokens=QUARANTINE_MAX_COMPLETION_TOKENS,
+        )
         logger.info("QuarantinedLLM raw output chars=%s", len(raw))
 
         try:

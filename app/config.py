@@ -37,7 +37,8 @@ GROQ_MODEL = "qwen/qwen3.8-27b"
 GROQ_TEMPERATURE = 0.6
 GROQ_MAX_COMPLETION_TOKENS = 2048
 GROQ_TOP_P = 0.95
-GROQ_REASONING_EFFORT = "default"
+# "none" keeps day-to-day chats off the reasoning token budget.
+GROQ_REASONING_EFFORT = "none"
 
 # Legacy S1 decision LLM (System One) still talks to a local Ollama-compatible host.
 OLLAMA_HOST = "http://127.0.0.1:11434"
@@ -54,7 +55,8 @@ DECISION_MODEL = "tev1:0.8b"
 DECISION_MODEL_TIMEOUT_S = 30.0
 INJECTION_THRESHOLD = 0.45  # only used by DecisionModel (System One noul)
 
-SEARCH_TOP_K = 5
+# One policy document per search while iterating, so the extractor is not handed five full files.
+SEARCH_TOP_K = 1
 MAX_TOOL_ROUNDS = 4
 
 # S2 privileged planner (P-LLM) — plans before reading untrusted content
@@ -64,3 +66,5 @@ MAX_PLAN_STEPS = 6
 # S2 quarantined extractor (Q-LLM) — schema-only, no tools
 QUARANTINE_MODEL = GROQ_MODEL
 QUARANTINE_MAX_INPUT_CHARS = 8000
+# Facts are a small JSON object. A large cap lets the extractor rewrite the whole document.
+QUARANTINE_MAX_COMPLETION_TOKENS = 512

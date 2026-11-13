@@ -90,6 +90,8 @@ Shared rule for both: **untrusted text must not get the steering wheel on privil
 - **Quarantined LLM** (`quarantined_llm_inference.py`): untrusted text, **no tools**, JSON for a caller-supplied Pydantic model or JSON schema.
 - CaMeL blocks *indirect* steering (poison in retrieved/tool text cannot pick the next tool). A jailbreak in the **user message** can still steer the P-LLM. Writes still need S3.
 - Pitfall: a small model may wrap the plan under a schema name (`PlanStep`). Pydantic ignores that extra key and fills defaults, so the API shows `valid: true` with **zero steps**. Ask for a flat `{goal, steps, notes}` object, and unwrap one nested object that actually contains `steps`.
+- Pitfall: the Q-LLM is a paid call per tool. If its completion cap is large, it rewrites the retrieved document, spends the rate limit, and the next step waits on a 429. Cap extractor tokens and how many documents a search returns. The schema needs fields, not a second copy of the policy.
+- `POST /chat` still returns the finished JSON. `POST /chat/stream` emits the classifier, the plan, and each tool as server-sent events so the wait is visible. The answer text is markdown; the UI renders it instead of showing the `**` markers.
 
 ---
 

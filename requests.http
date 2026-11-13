@@ -11,6 +11,16 @@ GET {{baseUrl}}/tools
 # BENIGN — should PASS S1 and hit the baseline BankOps agent
 ###############################################################################
 
+### Chat stream — classifier, plan, and tools as they happen
+POST {{baseUrl}}/chat/stream
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "user_id": "{{userId}}",
+  "message": "What does our refund policy say about destination accounts?"
+}
+
 ### Chat — refund policy lookup
 POST {{baseUrl}}/chat
 Content-Type: application/json

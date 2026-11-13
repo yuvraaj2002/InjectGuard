@@ -1,8 +1,13 @@
+import asyncio
+import json
 import logging
+import queue
+import threading
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
-from app.agent.baseline import BaselineAgent
+from app.agent.baseline import BaselineAgent, ChatResult
 from app.agent.chat_helper import handle_chat
 from app.config import (
     DEFAULT_USER_ID,
@@ -28,6 +33,43 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _chat_response(message: str, result: ChatResult) -> ChatResponse:
+    return ChatResponse(
+        message=message,
+        reply=result.reply,
+        model=result.model,
+        user_id=result.user_id,
+        available_tools=result.available_tools,
+        tool_calls=[
+            ToolCallTrace(
+                round=call.round,
+                name=call.name,
+                arguments=call.arguments,
+                output=call.output,
+            )
+            for call in result.tool_calls
+        ],
+        guard_events=[
+            GuardEventTrace(
+                layer=event.layer,
+                action=event.action,
+                injection=event.injection,
+                confidence=event.confidence,
+                reason=event.reason,
+                tool_name=event.tool_name,
+            )
+            for event in result.guard_events
+        ],
+        plan=result.plan,
+        facts=result.facts,
+        blocked=result.blocked,
+    )
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event, default=str)}\n\n"
 
 
 def _guard_layers() -> list[GuardLayerInfo]:
@@ -96,35 +138,51 @@ def chat(
         len(result.guard_events),
         result.blocked,
     )
-    return ChatResponse(
-        message=payload.message,
-        reply=result.reply,
-        model=result.model,
-        user_id=result.user_id,
-        available_tools=result.available_tools,
-        tool_calls=[
-            ToolCallTrace(
-                round=call.round,
-                name=call.name,
-                arguments=call.arguments,
-                output=call.output,
+    return _chat_response(payload.message, result)
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    payload: ChatRequest,
+    container: AppContainer = Depends(get_container),
+) -> StreamingResponse:
+    """Stream classifier, plan, and tool steps as server-sent events, then the reply."""
+    user_id = (payload.user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
+    logger.info("Chat stream started user_id=%s message=%s", user_id, payload.message)
+    events: queue.Queue[dict | None] = queue.Queue()
+
+    def worker() -> None:
+        try:
+            result = handle_chat(
+                payload.message,
+                user_id=user_id,
+                container=container,
+                on_event=events.put,
             )
-            for call in result.tool_calls
-        ],
-        guard_events=[
-            GuardEventTrace(
-                layer=event.layer,
-                action=event.action,
-                injection=event.injection,
-                confidence=event.confidence,
-                reason=event.reason,
-                tool_name=event.tool_name,
-            )
-            for event in result.guard_events
-        ],
-        plan=result.plan,
-        facts=result.facts,
-        blocked=result.blocked,
+            events.put({"type": "done", **_chat_response(payload.message, result).model_dump()})
+        except Exception as exc:  # noqa: BLE001 - the stream has already started
+            logger.exception("Chat stream failed")
+            events.put({"type": "error", "detail": str(exc)})
+        finally:
+            events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    async def generate():
+        while True:
+            item = await asyncio.to_thread(events.get)
+            if item is None:
+                break
+            yield _sse(item)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

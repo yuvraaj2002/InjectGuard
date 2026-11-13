@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from app.agent.baseline import TOOL_SCHEMAS, ChatResult, ToolCallRecord
@@ -17,6 +18,14 @@ from app.guardrails.s2_isolation.schema import AgentPlan
 
 logger = logging.getLogger(__name__)
 
+ChatEvent = dict[str, Any]
+EventSink = Callable[[ChatEvent], None]
+
+
+def _emit(on_event: EventSink | None, event: ChatEvent) -> None:
+    if on_event is not None:
+        on_event(event)
+
 
 def handle_chat(
     message: str,
@@ -24,6 +33,7 @@ def handle_chat(
     user_id: str = DEFAULT_USER_ID,
     model: str = GROQ_MODEL,
     container: AppContainer | None = None,
+    on_event: EventSink | None = None,
 ) -> ChatResult:
     """S1 on the user message, then plan, execute, and answer from structured facts."""
     resolved_user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
@@ -33,12 +43,15 @@ def handle_chat(
     try:
         guard = ContentGuard(classifier=services.input_classifier)
 
+        _emit(on_event, {"type": "status", "text": "Checking the message"})
         blocked_reply, input_event = guard.check_user_input(message)
         if blocked_reply is not None:
             logger.warning(
                 "Rejected user message reason=%s",
                 input_event.reason if input_event else "unknown",
             )
+            _emit(on_event, {"type": "guard", "text": "Input classifier blocked this message", "action": "block"})
+            _emit(on_event, {"type": "reply", "reply": blocked_reply, "blocked": True})
             return ChatResult(
                 reply=blocked_reply,
                 model=model,
@@ -48,6 +61,8 @@ def handle_chat(
                 blocked=True,
             )
 
+        _emit(on_event, {"type": "guard", "text": "Input classifier allowed this message", "action": "allow"})
+        _emit(on_event, {"type": "status", "text": "Planning"})
         planned = PrivilegedLLM(model=model).plan(message)
         logger.info(
             "Privileged plan ready valid=%s steps=%s errors=%s",
@@ -55,29 +70,38 @@ def handle_chat(
             len(planned.plan.steps) if planned.plan else 0,
             planned.errors,
         )
+        plan_payload = _plan_payload(planned)
+        step_names = [step.tool for step in planned.plan.steps] if planned.plan is not None else []
+        plan_text = "Plan: " + " → ".join(step_names) if step_names else "Plan: no steps"
+        _emit(on_event, {"type": "plan", "text": plan_text, "plan": plan_payload})
         if planned.plan is None or not planned.valid or not planned.plan.steps:
+            reply = _format_plan_reply(planned)
+            _emit(on_event, {"type": "reply", "reply": reply, "blocked": False})
             return ChatResult(
-                reply=_format_plan_reply(planned),
+                reply=reply,
                 model=planned.model,
                 available_tools=[tool["function"]["name"] for tool in TOOL_SCHEMAS],
                 user_id=resolved_user_id,
                 guard_events=[input_event] if input_event is not None else [],
-                plan=_plan_payload(planned),
+                plan=plan_payload,
             )
 
         outcome = PlanExecutor(
             user_id=resolved_user_id,
             quarantined=QuarantinedLLM(model=model),
             content_guard=guard,
+            on_event=on_event,
         ).execute(planned.plan)
         facts = _fact_trace(outcome)
         guard_events = [input_event] if input_event is not None else []
         guard_events.extend(outcome.guard_events)
+        _emit(on_event, {"type": "status", "text": "Writing the reply"})
         reply = (
             AnswerLLM(model=model).answer(message, facts)
             if outcome.ok
             else _stopped_reply(outcome)
         )
+        _emit(on_event, {"type": "reply", "reply": reply, "blocked": False})
         return ChatResult(
             reply=reply,
             model=planned.model,
@@ -88,7 +112,7 @@ def handle_chat(
                 for step in outcome.steps
             ],
             guard_events=guard_events,
-            plan=_plan_payload(planned),
+            plan=plan_payload,
             facts=facts,
         )
     finally:

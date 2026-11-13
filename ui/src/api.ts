@@ -82,6 +82,66 @@ export async function fetchTools(): Promise<ToolsResponse> {
   return response.json()
 }
 
+export type ChatStreamEvent = {
+  type: string
+  text?: string
+  reply?: string
+  blocked?: boolean
+  detail?: string
+  model?: string
+  tool_calls?: ToolCallTrace[]
+  plan?: AgentPlanView | null
+  facts?: Record<string, unknown>[]
+}
+
+export async function streamChat(
+  message: string,
+  onEvent: (event: ChatStreamEvent) => void,
+): Promise<void> {
+  const response = await fetch(`${API_BASE}/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify({ message }),
+  })
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
+  if (!response.body) {
+    throw new Error('Chat stream returned no body')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let sawDone = false
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const chunks = buffer.split('\n\n')
+    buffer = chunks.pop() ?? ''
+    for (const chunk of chunks) {
+      const data = chunk
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .join('\n')
+      if (!data) continue
+      const event = JSON.parse(data) as ChatStreamEvent
+      if (event.type === 'error') {
+        throw new Error(event.detail || 'Chat stream failed')
+      }
+      if (event.type === 'done') sawDone = true
+      onEvent(event)
+    }
+  }
+
+  if (!sawDone) {
+    throw new Error('The stream ended before a reply')
+  }
+}
+
 export async function sendChat(message: string): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE}/chat`, {
     method: 'POST',

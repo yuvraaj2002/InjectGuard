@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.config import DEFAULT_USER_ID
 from app.guardrails.s1_detection.guard import ContentGuard, GuardEvent
@@ -156,12 +157,14 @@ class PlanExecutor:
         user_id: str = DEFAULT_USER_ID,
         quarantined: QuarantinedLLM | None = None,
         content_guard: ContentGuard | None = None,
+        on_event: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
         self._run_tool = tool_runner or (lambda name, args: _dispatch_tool(name, args, user_id=self.user_id))
         self.stop_on_error = stop_on_error
         self._quarantine = quarantined
         self._guard = content_guard
+        self._on_event = on_event
 
     def resolve_args(self, args: dict[str, Any], variables: dict[str, str]) -> tuple[dict[str, Any], str | None]:
         """Replace `$name` values from already extracted variables. Returns (resolved, error)."""
@@ -176,6 +179,10 @@ class PlanExecutor:
                 resolved[key] = value
         return resolved, None
 
+    def _emit(self, event: dict[str, Any]) -> None:
+        if self._on_event is not None:
+            self._on_event(event)
+
     def run_step(
         self,
         step: PlanStep,
@@ -188,17 +195,21 @@ class PlanExecutor:
         blobs = raw_blobs if raw_blobs is not None else {}
         events = guard_events if guard_events is not None else []
         if step.tool not in ALLOWED_TOOLS:
+            self._emit({"type": "step", "phase": "done", "index": index, "tool": step.tool, "ok": False, "text": f"{step.tool} stopped"})
             return StepResult(index=index, tool=step.tool, args=dict(step.args), output="", save_as=step.save_as, ok=False, error=f"unknown tool: {step.tool}")
 
         resolved, err = self._resolve_args(step.args, variables, blobs)
         if err is not None:
+            self._emit({"type": "step", "phase": "done", "index": index, "tool": step.tool, "ok": False, "text": f"{step.tool} stopped"})
             return StepResult(index=index, tool=step.tool, args=dict(step.args), output="", save_as=step.save_as, ok=False, error=err)
 
+        self._emit({"type": "step", "phase": "start", "index": index, "tool": step.tool, "args": resolved, "text": f"Running {step.tool}"})
         logger.info("PlanExecutor step[%s] %s args=%s user_id=%s", index, step.tool, resolved, self.user_id)
         try:
             output = self._run_tool(step.tool, resolved)
         except Exception as exc:  # noqa: BLE001 — surface tool failures as step errors
             logger.exception("PlanExecutor step[%s] %s failed", index, step.tool)
+            self._emit({"type": "step", "phase": "done", "index": index, "tool": step.tool, "ok": False, "text": f"{step.tool} stopped"})
             return StepResult(index=index, tool=step.tool, args=resolved, output="", save_as=step.save_as, ok=False, error=str(exc))
 
         if self._guard is not None:
@@ -209,6 +220,7 @@ class PlanExecutor:
         if step.save_as:
             blobs[step.save_as] = output
         extracted = self._extract_tool_facts(step.tool, output) if step.tool in self._READ_TOOLS else None
+        self._emit({"type": "step", "phase": "done", "index": index, "tool": step.tool, "args": resolved, "ok": True, "text": f"{step.tool} done"})
         return StepResult(
             index=index,
             tool=step.tool,
@@ -286,6 +298,7 @@ class PlanExecutor:
             "type": "object",
             "properties": {name: {"type": "string", "description": f"The {name} stated in the text, or empty."} for name in names},
         }
+        self._emit({"type": "status", "text": f"Extracting {', '.join(names)}"})
         result = self._quarantine.extract(
             self._join_blobs(raw_blobs),
             schema,
@@ -310,6 +323,7 @@ class PlanExecutor:
         schema = self._FACT_SCHEMAS.get(tool_name)
         if schema is None or not output.strip():
             return None
+        self._emit({"type": "status", "text": f"Extracting facts from {tool_name}"})
         result = self._quarantine.extract(
             output,
             schema,

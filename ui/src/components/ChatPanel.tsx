@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, KeyboardEvent } from 'react'
-import { sendChat } from '../api'
-import type { AgentPlanView, ToolCallTrace } from '../api'
+import ReactMarkdown from 'react-markdown'
+import { streamChat } from '../api'
+import type { AgentPlanView, ChatStreamEvent, ToolCallTrace } from '../api'
+
+type TraceLine = {
+  id: string
+  text: string
+  active: boolean
+}
 
 type ChatTurn = {
   id: string
@@ -11,6 +18,7 @@ type ChatTurn = {
   tool_calls?: ToolCallTrace[]
   plan?: AgentPlanView | null
   facts?: Record<string, unknown>[]
+  trace?: TraceLine[]
 }
 
 const EXAMPLES = [
@@ -27,6 +35,33 @@ type Props = {
   hidden: boolean
   onUsedTools: (names: string[]) => void
   onModel: (model: string) => void
+}
+
+function withTrace(turn: ChatTurn, text: string): ChatTurn {
+  const trace = (turn.trace ?? []).map((line) => ({ ...line, active: false }))
+  trace.push({ id: `${trace.length}-${text}`, text, active: true })
+  return { ...turn, trace }
+}
+
+function applyEvent(turn: ChatTurn, event: ChatStreamEvent): ChatTurn {
+  if (event.type === 'reply') {
+    const trace = (turn.trace ?? []).map((line) => ({ ...line, active: false }))
+    return { ...turn, content: event.reply ?? '', blocked: event.blocked, trace }
+  }
+  if (event.type === 'done') {
+    const trace = (turn.trace ?? []).map((line) => ({ ...line, active: false }))
+    return {
+      ...turn,
+      content: event.reply ?? turn.content,
+      blocked: event.blocked,
+      tool_calls: event.tool_calls,
+      plan: event.plan,
+      facts: event.facts,
+      trace,
+    }
+  }
+  if (event.text) return withTrace(turn, event.text)
+  return turn
 }
 
 function SendIcon() {
@@ -62,27 +97,22 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
     const message = query.trim()
     if (!message || loading) return
 
-    setTurns((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: message }])
+    const assistantId = `a-${Date.now()}`
+    setTurns((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: 'user', content: message },
+      { id: assistantId, role: 'assistant', content: '', trace: [] },
+    ])
     setQuery('')
     setLoading(true)
     setError(null)
 
     try {
-      const response = await sendChat(message)
-      onModel(response.model)
-      onUsedTools(response.tool_calls.map((call) => call.name))
-      setTurns((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: 'assistant',
-          content: response.reply,
-          blocked: response.blocked,
-          tool_calls: response.tool_calls,
-          plan: response.plan,
-          facts: response.facts,
-        },
-      ])
+      await streamChat(message, (event) => {
+        if (event.type === 'done' && event.model) onModel(event.model)
+        if (event.type === 'done') onUsedTools((event.tool_calls ?? []).map((call) => call.name))
+        setTurns((prev) => prev.map((turn) => (turn.id === assistantId ? applyEvent(turn, event) : turn)))
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Chat request failed')
     } finally {
@@ -130,7 +160,23 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
               ) : (
                 <div key={turn.id} className="answer">
                   {turn.blocked && <span className="pill">Blocked</span>}
-                  <p>{turn.content}</p>
+                  {turn.trace && turn.trace.length > 0 && (
+                    <ol className="trace">
+                      {turn.trace.map((line) => (
+                        <li key={line.id} data-active={line.active ? 'true' : 'false'}>
+                          <span className="trace-dot" aria-hidden="true" />
+                          {line.text}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                  {turn.content ? (
+                    <div className="md">
+                      <ReactMarkdown>{turn.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    loading && (!turn.trace || turn.trace.length === 0) && <p className="pending">Working…</p>
+                  )}
                   {turn.tool_calls && turn.tool_calls.length > 0 && (
                     <div className="chips">
                       {turn.tool_calls.map((call, index) => (
@@ -152,11 +198,6 @@ export function ChatPanel({ hidden, onUsedTools, onModel }: Props) {
                   )}
                 </div>
               ),
-            )}
-            {loading && (
-              <div className="answer">
-                <p className="pending">Thinking…</p>
-              </div>
             )}
           </div>
         )}
