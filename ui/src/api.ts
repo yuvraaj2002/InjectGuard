@@ -93,3 +93,45 @@ export async function sendChat(message: string): Promise<ChatResponse> {
   }
   return response.json()
 }
+
+export type PlaygroundOption = {
+  type: string
+  label: string
+  description: string
+  messages: string[]
+}
+
+export type PlaygroundClassifyResponse = {
+  type: string
+  message: string
+  injection: boolean
+  confidence: number
+  reason: string
+  model: string
+  source: string
+  latency_ms: number
+}
+
+export async function fetchPlaygroundOptions(): Promise<PlaygroundOption[]> {
+  const response = await fetch(`${API_BASE}/playground/options`)
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
+  const data = await response.json()
+  return data.options ?? []
+}
+
+export async function classifyMessage(
+  type: string,
+  message: string,
+): Promise<PlaygroundClassifyResponse> {
+  const response = await fetch(`${API_BASE}/playground/classify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, message }),
+  })
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
+  return response.json()
+}

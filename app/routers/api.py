@@ -7,7 +7,7 @@ from app.agent.chat_helper import handle_chat
 from app.config import (
     DEFAULT_USER_ID,
     INPUT_CLASSIFIER_MODEL,
-    OLLAMA_MODEL,
+    GROQ_MODEL,
 )
 from app.container import AppContainer
 from app.deps import get_container
@@ -65,7 +65,7 @@ def list_tools() -> ToolsResponse:
     tools = [ToolInfo(**tool) for tool in agent.list_tools()]
     logger.info("Tools listed count=%s", len(tools))
     return ToolsResponse(
-        model=OLLAMA_MODEL,
+        model=GROQ_MODEL,
         tools=tools,
         decision_model=INPUT_CLASSIFIER_MODEL,
         guard_layers=_guard_layers(),
@@ -81,7 +81,7 @@ def chat(
     logger.info("Chat request received user_id=%s message=%s", user_id, payload.message)
     try:
         result = handle_chat(payload.message, user_id=user_id, container=container)
-    except Exception as exc:  # noqa: BLE001 - surface local Ollama failures cleanly
+    except Exception as exc:  # noqa: BLE001 - surface Groq failures cleanly
         logger.exception("Chat backend failed")
         raise HTTPException(
             status_code=502,

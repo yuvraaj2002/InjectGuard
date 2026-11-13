@@ -1,16 +1,14 @@
-"""Baseline BankOps agent: Ollama tool-calling loop (propose → execute → re-enter)."""
+"""Baseline BankOps agent: Groq tool-calling loop (propose → execute → re-enter)."""
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-import ollama
-
 from app.agent.prompt import SYSTEM_PROMPT
-from app.config import DEFAULT_USER_ID, MAX_TOOL_ROUNDS, OLLAMA_HOST, OLLAMA_MODEL
+from app.config import DEFAULT_USER_ID, GROQ_MODEL, MAX_TOOL_ROUNDS
+from app.llm.groq_chat import complete, complete_with_tools
 from app.guardrails.s1_detection.guard import ContentGuard, GuardEvent
 from app.tools.get_account import GET_ACCOUNT_TOOL, get_account
 from app.tools.issue_refund import ISSUE_REFUND_TOOL, issue_refund
@@ -100,20 +98,18 @@ class BaselineAgent:
     def __init__(
         self,
         *,
-        model: str = OLLAMA_MODEL,
-        host: str = OLLAMA_HOST,
+        model: str = GROQ_MODEL,
         max_tool_rounds: int = MAX_TOOL_ROUNDS,
         system_prompt: str = SYSTEM_PROMPT,
         user_id: str = DEFAULT_USER_ID,
         content_guard: ContentGuard | None = None,
     ) -> None:
-        self.model = model
+        self.model = model or GROQ_MODEL
         self.max_tool_rounds = max_tool_rounds
         self.system_prompt = system_prompt
         self.user_id = (user_id or DEFAULT_USER_ID).strip() or DEFAULT_USER_ID
         self.content_guard = content_guard
         self.tools = TOOL_SCHEMAS
-        self._client = ollama.Client(host=host)
 
     @property
     def available_tool_names(self) -> list[str]:
@@ -128,18 +124,6 @@ class BaselineAgent:
             }
             for tool in self.tools
         ]
-
-    @staticmethod
-    def _parse_args(raw_args: Any) -> dict[str, Any]:
-        if isinstance(raw_args, dict):
-            return dict(raw_args)
-        if isinstance(raw_args, str):
-            try:
-                parsed = json.loads(raw_args)
-            except json.JSONDecodeError:
-                return {"query": raw_args}
-            return parsed if isinstance(parsed, dict) else {"query": str(parsed)}
-        return {}
 
     def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
         handler = TOOL_HANDLERS.get(name)
@@ -161,22 +145,11 @@ class BaselineAgent:
         guard_events: list[GuardEvent] = []
 
         for round_index in range(1, self.max_tool_rounds + 1):
-            response = self._client.chat(
-                model=self.model,
-                messages=messages,
-                tools=self.tools,
-            )
-            assistant = response.message
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": assistant.content or "",
-                    "tool_calls": assistant.tool_calls,
-                }
-            )
+            turn = complete_with_tools(messages, self.tools, model=self.model)
+            messages.append(turn.raw_message)
 
-            if not assistant.tool_calls:
-                reply = (assistant.content or "").strip() or "No response generated."
+            if not turn.tool_calls:
+                reply = turn.content or "No response generated."
                 logger.info("Chat done after %s round(s), %s tool call(s)", round_index, len(tool_calls))
                 return ChatResult(
                     reply=reply,
@@ -187,9 +160,9 @@ class BaselineAgent:
                     guard_events=guard_events,
                 )
 
-            for call in assistant.tool_calls:
-                name = call.function.name
-                arguments = self._parse_args(call.function.arguments or {})
+            for call in turn.tool_calls:
+                name = call.name
+                arguments = call.arguments
                 output = self._run_tool(name, arguments)
                 if self.content_guard is not None:
                     output, event = self.content_guard.filter_tool_output(name, output)
@@ -198,11 +171,17 @@ class BaselineAgent:
                 tool_calls.append(
                     ToolCallRecord(round=round_index, name=name, arguments=arguments, output=output)
                 )
-                messages.append({"role": "tool", "tool_name": name, "content": output})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "name": name,
+                        "content": output,
+                    }
+                )
 
         logger.warning("Hit max tool rounds (%s); requesting final answer", self.max_tool_rounds)
-        final = self._client.chat(model=self.model, messages=messages)
-        reply = (final.message.content or "").strip() or "No response generated."
+        reply = complete(messages, model=self.model) or "No response generated."
         return ChatResult(
             reply=reply,
             model=self.model,
@@ -213,7 +192,7 @@ class BaselineAgent:
         )
 
 
-def run_chat(message: str, *, model: str = OLLAMA_MODEL, user_id: str = DEFAULT_USER_ID) -> ChatResult:
+def run_chat(message: str, *, model: str = GROQ_MODEL, user_id: str = DEFAULT_USER_ID) -> ChatResult:
     """CLI/eval entry: S1 gate then baseline agent (same path as POST /chat)."""
     from app.agent.chat_helper import handle_chat
 

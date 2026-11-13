@@ -1,6 +1,6 @@
 """Quarantined LLM (Q-LLM): untrusted text → JSON matching a caller-supplied schema.
 
-Ollama chat only. No tools are passed. The model may read untrusted content,
+Groq chat only. No tools are passed. The model may read untrusted content,
 but it cannot call functions. Callers validate the JSON against a Pydantic
 model or treat a JSON schema dict as the contract.
 
@@ -16,10 +16,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import ollama
 from pydantic import BaseModel, ValidationError
 
-from app.config import OLLAMA_HOST, OLLAMA_MODEL, QUARANTINE_MAX_INPUT_CHARS, QUARANTINE_MODEL
+from app.config import GROQ_MODEL, QUARANTINE_MAX_INPUT_CHARS, QUARANTINE_MODEL
+from app.llm.groq_chat import complete
 from app.guardrails.s2_isolation.prompt import QUARANTINE_SYSTEM_PROMPT, build_quarantine_user_message
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class QuarantineResult:
 
 
 class QuarantinedLLM:
-    """One Ollama client. extract() per untrusted blob. Never receives tools."""
+    """Groq chat. extract() per untrusted blob. Never receives tools."""
 
     _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
 
@@ -46,14 +46,12 @@ class QuarantinedLLM:
         self,
         *,
         model: str = QUARANTINE_MODEL,
-        host: str = OLLAMA_HOST,
         system_prompt: str = QUARANTINE_SYSTEM_PROMPT,
         max_input_chars: int = QUARANTINE_MAX_INPUT_CHARS,
     ) -> None:
-        self.model = model or OLLAMA_MODEL
+        self.model = model or GROQ_MODEL
         self.system_prompt = system_prompt
         self.max_input_chars = max_input_chars
-        self._client = ollama.Client(host=host)
 
     def extract(
         self,
@@ -90,9 +88,8 @@ class QuarantinedLLM:
             {"role": "user", "content": build_quarantine_user_message(text, schema_doc, goal=goal)},
         ]
         logger.info("QuarantinedLLM extracting model=%s chars=%s", self.model, len(text))
-        # No tools= argument. This model must not be able to call functions.
-        response = self._client.chat(model=self.model, messages=messages)
-        raw = (response.message.content or "").strip()
+        # No tools. This model must not be able to call functions.
+        raw = complete(messages, model=self.model)
         logger.info("QuarantinedLLM raw output chars=%s", len(raw))
 
         try:

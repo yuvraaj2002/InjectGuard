@@ -1,6 +1,25 @@
+import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv(path: Path) -> None:
+    """Load KEY=VALUE lines into the environment. Existing vars win. Never logs values."""
+    if not path.is_file():
+        return
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_dotenv(PROJECT_ROOT / ".env")
 DOCS_DIR = PROJECT_ROOT / "data" / "synthetic" / "docs"
 POLICY_ACCESS_PATH = PROJECT_ROOT / "data" / "synthetic" / "policy_access.json"
 DISPUTES_PATH = PROJECT_ROOT / "data" / "synthetic" / "disputes" / "disputes.json"
@@ -12,6 +31,15 @@ REFUND_SINK_PATH = PROJECT_ROOT / "data" / "synthetic" / "refund_sink.jsonl"
 # Stand-in for "resolved from auth token" until real auth exists.
 DEFAULT_USER_ID = "op-001"
 
+# Chat models (planner, quarantine extractor, answer writer, baseline loop).
+# Groq() reads GROQ_API_KEY from the environment loaded above.
+GROQ_MODEL = "qwen/qwen3.8-27b"
+GROQ_TEMPERATURE = 0.6
+GROQ_MAX_COMPLETION_TOKENS = 2048
+GROQ_TOP_P = 0.95
+GROQ_REASONING_EFFORT = "default"
+
+# Legacy S1 decision LLM (System One) still talks to a local Ollama-compatible host.
 OLLAMA_HOST = "http://127.0.0.1:11434"
 OLLAMA_MODEL = "lfm2.5-thinking:latest"
 
@@ -30,9 +58,9 @@ SEARCH_TOP_K = 5
 MAX_TOOL_ROUNDS = 4
 
 # S2 privileged planner (P-LLM) — plans before reading untrusted content
-PLANNER_MODEL = OLLAMA_MODEL
+PLANNER_MODEL = GROQ_MODEL
 MAX_PLAN_STEPS = 6
 
 # S2 quarantined extractor (Q-LLM) — schema-only, no tools
-QUARANTINE_MODEL = OLLAMA_MODEL
+QUARANTINE_MODEL = GROQ_MODEL
 QUARANTINE_MAX_INPUT_CHARS = 8000

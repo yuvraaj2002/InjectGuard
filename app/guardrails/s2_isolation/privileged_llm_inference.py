@@ -1,7 +1,7 @@
 """Privileged LLM (P-LLM): user request + tool schemas → pinned AgentPlan.
 
 CaMeL split: this model chooses the tool sequence before any untrusted content
-is read. Ollama chat only. Tool schemas are text in the prompt. No tools are
+is read. Groq chat only. Tool schemas are text in the prompt. No tools are
 passed, so the model cannot execute them. A separate interpreter runs the plan.
 
 Not wired into the chat path yet.
@@ -15,10 +15,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-import ollama
 from pydantic import ValidationError
 
-from app.config import MAX_PLAN_STEPS, OLLAMA_HOST, OLLAMA_MODEL, PLANNER_MODEL
+from app.config import GROQ_MODEL, MAX_PLAN_STEPS, PLANNER_MODEL
+from app.llm.groq_chat import complete
 from app.guardrails.s2_isolation.prompt import (
     PLANNER_SYSTEM_PROMPT,
     PLAN_SHAPE_EXAMPLE,
@@ -46,7 +46,7 @@ class PrivilegedPlanResult:
 
 
 class PrivilegedLLM:
-    """One Ollama client. plan() per user request. Sees schemas, never tool output."""
+    """Groq chat. plan() per user request. Sees schemas, never tool output."""
 
     _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
     _TOOL_SCHEMAS = (
@@ -62,16 +62,14 @@ class PrivilegedLLM:
         self,
         *,
         model: str = PLANNER_MODEL,
-        host: str = OLLAMA_HOST,
         system_prompt: str = PLANNER_SYSTEM_PROMPT,
         tools: list[dict[str, Any]] | None = None,
         max_steps: int = MAX_PLAN_STEPS,
     ) -> None:
-        self.model = model or OLLAMA_MODEL
+        self.model = model or GROQ_MODEL
         self.system_prompt = system_prompt
         self.tools = self._tool_catalog() if tools is None else tools
         self.max_steps = max_steps
-        self._client = ollama.Client(host=host)
 
     def plan(self, user_request: str) -> PrivilegedPlanResult:
         """Turn the user request into an AgentPlan. Does not execute tools."""
@@ -97,9 +95,8 @@ class PrivilegedLLM:
             },
         ]
         logger.info("PrivilegedLLM planning model=%s", self.model)
-        # No tools= argument. Schemas are prompt text. The interpreter runs the plan.
-        response = self._client.chat(model=self.model, messages=messages)
-        raw = (response.message.content or "").strip()
+        # No tools. Schemas are prompt text. The interpreter runs the plan.
+        raw = complete(messages, model=self.model)
         logger.info("PrivilegedLLM raw output chars=%s", len(raw))
 
         errors: list[str] = []

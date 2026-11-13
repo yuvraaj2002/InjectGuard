@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from app.agent.baseline import TOOL_SCHEMAS, ChatResult, ToolCallRecord
-from app.config import DEFAULT_USER_ID, OLLAMA_MODEL
+from app.config import DEFAULT_USER_ID, GROQ_MODEL
 from app.container import AppContainer
 from app.guardrails.s1_detection.guard import ContentGuard
 from app.guardrails.s2_isolation.answer_llm_inference import AnswerLLM
@@ -22,7 +22,7 @@ def handle_chat(
     message: str,
     *,
     user_id: str = DEFAULT_USER_ID,
-    model: str = OLLAMA_MODEL,
+    model: str = GROQ_MODEL,
     container: AppContainer | None = None,
 ) -> ChatResult:
     """S1 on the user message, then plan, execute, and answer from structured facts."""

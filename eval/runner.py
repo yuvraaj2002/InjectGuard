@@ -27,7 +27,7 @@ from typing import Any, Iterator
 import yaml
 
 from app.agent.baseline import BaselineAgent
-from app.config import DOCS_DIR, OLLAMA_MODEL, PROJECT_ROOT
+from app.config import DOCS_DIR, GROQ_MODEL, PROJECT_ROOT
 from eval.oracles import RunArtifacts, ToolCallView, evaluate_oracle
 from eval.sinks import read_sink_delta, sink_snapshot
 
@@ -239,8 +239,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--model",
-        default=OLLAMA_MODEL,
-        help=f"Ollama model (default: {OLLAMA_MODEL})",
+        default=GROQ_MODEL,
+        help=f"Groq model (default: {GROQ_MODEL})",
     )
     args = parser.parse_args(argv)
 
